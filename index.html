@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -114,6 +113,7 @@ let player;
 let enemies = [];
 let obstacles = [];
 let boss = null;
+let portal = null;
 let particles = [];
 
 let kills = 0;
@@ -152,6 +152,7 @@ function restartGame() {
     obstacles = [];
     particles = [];
     boss = null;
+    portal = null;
 
     kills = 0;
     bossCreated = false;
@@ -537,7 +538,25 @@ function createBoss() {
 }
 
 function updateBoss() {
-    if (!boss || boss.hp <= 0) return;
+    if (!boss) return;
+
+    // Quando o chefe é derrotado, abre um portal no local da batalha.
+    if (boss.hp <= 0) {
+        if (!bossDefeated) {
+            bossDefeated = true;
+            portal = {
+                x: boss.x,
+                y: boss.y,
+                pulse: 0
+            };
+
+            createParticles(boss.x, boss.y, "#a855ff");
+            createParticles(boss.x, boss.y, "#55ddff");
+            message.textContent =
+                "O portal foi aberto! Entre nele para encontrar seu irmão.";
+        }
+        return;
+    }
 
     let dx = player.x - boss.x;
     let dy = player.y - boss.y;
@@ -548,7 +567,7 @@ function updateBoss() {
         let vy = dy / (d || 1) * boss.speed;
 
         if (!moveEntity(boss, vx, vy, boss.size)) {
-            // O chefe também tenta contornar obstáculos.
+            // O chefe tenta contornar obstáculos.
             moveEntity(boss, -vy, vx, boss.size);
         }
     } else if (boss.cooldown <= 0) {
@@ -558,13 +577,60 @@ function updateBoss() {
 
     if (boss.cooldown > 0) boss.cooldown--;
     if (boss.flash > 0) boss.flash--;
+}
 
-    if (boss.hp <= 0 && !bossDefeated) {
-        bossDefeated = true;
+// PORTAL MÁGICO
+function updatePortal() {
+    if (!portal) return;
+
+    portal.pulse += 0.08;
+
+    // Ao se aproximar, o protagonista atravessa o portal.
+    if (distance(player, portal) < 48) {
         state = "ending";
-        message.textContent =
-            "Você derrotou a entidade das sombras!";
+        message.textContent = "Você encontrou seu irmão perdido!";
     }
+}
+
+function drawPortal() {
+    if (!portal) return;
+
+    const glow = Math.sin(portal.pulse) * 5;
+
+    ctx.save();
+    ctx.translate(portal.x, portal.y);
+
+    // Brilho externo
+    ctx.fillStyle = "rgba(130, 40, 255, 0.22)";
+    ctx.beginPath();
+    ctx.arc(0, 0, 48 + glow, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Interior do portal
+    ctx.fillStyle = "#261044";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 23 + glow / 3, 36 + glow, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Borda de energia
+    ctx.strokeStyle = "#bb66ff";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 23 + glow / 3, 36 + glow, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Núcleo luminoso
+    ctx.fillStyle = "rgba(100, 190, 255, 0.7)";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 13, 27, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "13px Georgia";
+    ctx.textAlign = "center";
+    ctx.fillText("PORTAL", 0, 55);
+
+    ctx.restore();
 }
 
 // MOVIMENTO
@@ -774,10 +840,10 @@ function drawEnding() {
     drawDialogue(
         "O REENCONTRO",
         [
-            "Com a entidade derrotada, a escuridão desapareceu.",
-            "Entre as ruínas, uma voz familiar chamou pelo herói.",
-            "Era seu irmão. Ele havia sobrevivido!",
-            "Depois de tanto tempo, os dois finalmente se reencontraram."
+            "O protagonista atravessou o misterioso portal.",
+            "Do outro lado, encontrou um lugar desconhecido.",
+            "Então ouviu uma voz familiar: IRMÃO!",
+            "Era seu irmão perdido. Depois de tanto tempo, estavam juntos novamente."
         ],
         "FIM DA PRIMEIRA JORNADA"
     );
@@ -828,6 +894,7 @@ function update() {
     updateDefense();
     updateEnemies();
     updateBoss();
+    updatePortal();
     updateParticles();
 
     if (player.attackCooldown > 0) player.attackCooldown--;
@@ -852,6 +919,7 @@ function draw() {
     drawMap();
     drawEnemies();
     drawBoss();
+    drawPortal();
     drawParticles();
     drawPlayer();
 
