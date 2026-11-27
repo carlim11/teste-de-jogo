@@ -136,7 +136,8 @@ function restartGame() {
         direction: "down",
         attackCooldown: 0,
         attackTime: 0,
-        invincible: 0
+        invincible: 0,
+        attackAngle: 0
     };
 
     enemies = [];
@@ -150,16 +151,14 @@ function restartGame() {
     victory = false;
 
     generateMap();
-    spawnEnemies(5);
+    spawnEnemies(6);
 
-    message.textContent =
-        "Encontre e derrote os monstros da floresta!";
+    message.textContent = "Encontre os monstros da floresta!";
 }
 
 function generateMap() {
     obstacles = [];
 
-    // Árvores e pedras espalhadas pelo mapa
     for (let i = 0; i < 75; i++) {
         let x = Math.floor(Math.random() * (COLS - 2) + 1) * TILE;
         let y = Math.floor(Math.random() * (ROWS - 2) + 1) * TILE;
@@ -172,6 +171,10 @@ function generateMap() {
             type: Math.random() > 0.5 ? "tree" : "rock"
         });
     }
+}
+
+function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function spawnEnemies(amount) {
@@ -193,10 +196,6 @@ function spawnEnemies(amount) {
     }
 }
 
-function distance(a, b) {
-    return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
 function collides(x, y, size) {
     if (x < size || y < size ||
         x > canvas.width - size ||
@@ -208,6 +207,7 @@ function collides(x, y, size) {
     );
 }
 
+// MOVIMENTAÇÃO
 function movePlayer() {
     let dx = 0;
     let dy = 0;
@@ -246,13 +246,15 @@ function movePlayer() {
     }
 }
 
+// ATAQUE COM ESPADA
 function attack() {
     if (player.attackCooldown > 0 || gameOver || victory) return;
 
     player.attackCooldown = 25;
-    player.attackTime = 10;
+    player.attackTime = 12;
 
-    let range = 65;
+    const range = 75;
+    const halfArc = 0.85;
 
     enemies.forEach(enemy => {
         if (enemy.hp <= 0) return;
@@ -260,34 +262,50 @@ function attack() {
         let dx = enemy.x - player.x;
         let dy = enemy.y - player.y;
 
-        let inFront = false;
+        let dist = Math.hypot(dx, dy);
+        let angle = Math.atan2(dy, dx);
 
-        if (player.direction === "up" && dy < 0 && Math.abs(dx) < 55) inFront = true;
-        if (player.direction === "down" && dy > 0 && Math.abs(dx) < 55) inFront = true;
-        if (player.direction === "left" && dx < 0 && Math.abs(dy) < 55) inFront = true;
-        if (player.direction === "right" && dx > 0 && Math.abs(dy) < 55) inFront = true;
+        let difference = Math.atan2(
+            Math.sin(angle - player.attackAngle),
+            Math.cos(angle - player.attackAngle)
+        );
 
-        if (inFront && distance(enemy, player) < range) {
+        if (dist < range && Math.abs(difference) < halfArc) {
             enemy.hp -= 25;
         }
     });
 
-    if (boss && boss.hp > 0 &&
-        distance(boss, player) < range + 15) {
-        boss.hp -= 25;
+    if (boss && boss.hp > 0) {
+        let dx = boss.x - player.x;
+        let dy = boss.y - player.y;
+
+        let dist = Math.hypot(dx, dy);
+        let angle = Math.atan2(dy, dx);
+
+        let difference = Math.atan2(
+            Math.sin(angle - player.attackAngle),
+            Math.cos(angle - player.attackAngle)
+        );
+
+        if (dist < range + 15 && Math.abs(difference) < halfArc) {
+            boss.hp -= 25;
+        }
     }
 }
 
+// POÇÕES
 function usePotion() {
-    if (player.potions <= 0 || player.hp >= player.maxHp ||
+    if (player.potions <= 0 ||
+        player.hp >= player.maxHp ||
         gameOver || victory) return;
 
     player.potions--;
     player.hp = Math.min(player.maxHp, player.hp + 35);
 
-    message.textContent = "Você usou uma poção e recuperou vida!";
+    message.textContent = "Você recuperou 35 pontos de vida!";
 }
 
+// INIMIGOS
 function updateEnemies() {
     enemies.forEach(enemy => {
         if (enemy.hp <= 0) return;
@@ -320,6 +338,7 @@ function updateEnemies() {
     }
 }
 
+// CHEFE
 function createBoss() {
     bossCreated = true;
 
@@ -332,8 +351,7 @@ function createBoss() {
         cooldown: 0
     };
 
-    message.textContent =
-        "O SENHOR DAS SOMBRAS DESPERTOU! DERROTE-O!";
+    message.textContent = "O SENHOR DAS SOMBRAS DESPERTOU!";
 }
 
 function updateBoss() {
@@ -359,11 +377,11 @@ function updateBoss() {
     if (boss.hp <= 0 && !bossDefeated) {
         bossDefeated = true;
         victory = true;
-        message.textContent =
-            "VITÓRIA! Você derrotou o Senhor das Sombras!";
+        message.textContent = "VITÓRIA! O SENHOR DAS SOMBRAS FOI DERROTADO!";
     }
 }
 
+// DANO
 function damagePlayer(amount) {
     if (player.invincible > 0) return;
 
@@ -373,21 +391,16 @@ function damagePlayer(amount) {
     if (player.hp <= 0) {
         player.hp = 0;
         gameOver = true;
-        message.textContent =
-            "Você foi derrotado... A escuridão venceu.";
+        message.textContent = "Você foi derrotado...";
     }
 }
 
+// MAPA
 function drawMap() {
     for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
-            ctx.fillStyle =
-                (x + y) % 2 === 0 ? "#365337" : "#304a31";
-
+            ctx.fillStyle = (x + y) % 2 === 0 ? "#365337" : "#304a31";
             ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
-
-            ctx.fillStyle = "#29412c";
-            ctx.fillRect(x * TILE + 8, y * TILE + 8, 3, 3);
         }
     }
 
@@ -404,13 +417,11 @@ function drawMap() {
         } else {
             ctx.fillStyle = "#777b72";
             ctx.fillRect(o.x - 12, o.y - 9, 24, 18);
-
-            ctx.fillStyle = "#999c91";
-            ctx.fillRect(o.x - 7, o.y - 10, 12, 5);
         }
     });
 }
 
+// JOGADOR E ANIMAÇÃO DA ESPADA
 function drawPlayer() {
     if (player.invincible > 0 &&
         Math.floor(player.invincible / 5) % 2 === 0) return;
@@ -427,24 +438,55 @@ function drawPlayer() {
     ctx.fillStyle = "#b9b9c0";
     ctx.fillRect(player.x - 7, player.y - 19, 14, 6);
 
-    // Espada
     if (player.attackTime > 0) {
-        ctx.fillStyle = "#eeeeee";
+        let progress = 1 - player.attackTime / 12;
 
-        let sx = player.x;
-        let sy = player.y;
+        // Animação de balanço
+        let swing = Math.sin(progress * Math.PI);
 
-        if (player.direction === "up") sy -= 35;
-        if (player.direction === "down") sy += 35;
-        if (player.direction === "left") sx -= 35;
-        if (player.direction === "right") sx += 35;
+        ctx.save();
+        ctx.translate(player.x, player.y);
 
-        ctx.fillRect(sx - 4, sy - 4, 8, 8);
-        ctx.fillStyle = "#d5ad55";
-        ctx.fillRect(sx - 3, sy - 3, 6, 6);
+        let angle = player.attackAngle - 0.9 + progress * 1.8;
+        ctx.rotate(angle);
+
+        // Rastro luminoso
+        ctx.beginPath();
+        ctx.arc(0, 0, 43, -0.9, 0.9);
+        ctx.strokeStyle = `rgba(100, 200, 255, ${0.8 * swing})`;
+        ctx.lineWidth = 8 * swing;
+        ctx.stroke();
+
+        // Lâmina da espada
+        ctx.save();
+        ctx.rotate(-0.2);
+
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.lineTo(54, 0);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Brilho azul
+        ctx.beginPath();
+        ctx.moveTo(19, -2);
+        ctx.lineTo(49, -2);
+        ctx.strokeStyle = "#8edcff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Cabo
+        ctx.fillStyle = "#bd914d";
+        ctx.fillRect(5, -4, 12, 8);
+
+        ctx.restore();
+        ctx.restore();
     }
 }
 
+// INIMIGOS
 function drawEnemies() {
     enemies.forEach(e => {
         ctx.fillStyle = "#17121b";
@@ -462,6 +504,7 @@ function drawEnemies() {
     });
 }
 
+// CHEFE VISUAL
 function drawBoss() {
     if (!boss || boss.hp <= 0) return;
 
@@ -490,6 +533,7 @@ function drawBoss() {
     ctx.fillText("SENHOR DAS SOMBRAS", 405, 15);
 }
 
+// TELA FINAL
 function drawEndScreen() {
     if (!gameOver && !victory) return;
 
@@ -502,22 +546,20 @@ function drawEndScreen() {
 
     ctx.fillText(
         victory ? "VITÓRIA!" : "FIM DE JOGO",
-        canvas.width / 2,
-        250
+        canvas.width / 2, 250
     );
 
     ctx.fillStyle = "white";
     ctx.font = "22px Georgia";
-
     ctx.fillText(
         victory ? "A luz voltou ao reino." : "A escuridão venceu.",
-        canvas.width / 2,
-        300
+        canvas.width / 2, 300
     );
 
     ctx.textAlign = "left";
 }
 
+// HUD
 function updateHUD() {
     healthText.textContent = "Vida: " + player.hp + "/100";
     potionText.textContent = "Poções: " + player.potions;
@@ -529,6 +571,7 @@ function updateHUD() {
         "Chefe: Adormecido";
 }
 
+// ATUALIZAÇÃO
 function update() {
     if (gameOver || victory) return;
 
@@ -557,6 +600,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+// CONTROLES DE TECLADO
 window.addEventListener("keydown", e => {
     const key = e.key.toLowerCase();
 
@@ -566,12 +610,34 @@ window.addEventListener("keydown", e => {
 
     keys[key] = true;
 
-    if (key === " ") attack();
     if (key === "e") usePotion();
 });
 
 window.addEventListener("keyup", e => {
     keys[e.key.toLowerCase()] = false;
+});
+
+// ATAQUE COM BOTÃO ESQUERDO DO MOUSE
+canvas.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    const mouseX = (e.clientX - rect.left) * canvas.width / rect.width;
+    const mouseY = (e.clientY - rect.top) * canvas.height / rect.height;
+
+    const dx = mouseX - player.x;
+    const dy = mouseY - player.y;
+
+    player.attackAngle = Math.atan2(dy, dx);
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+        player.direction = dx > 0 ? "right" : "left";
+    } else {
+        player.direction = dy > 0 ? "down" : "up";
+    }
+
+    attack();
 });
 
 restartGame();
