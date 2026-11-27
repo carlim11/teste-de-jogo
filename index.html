@@ -99,30 +99,36 @@ button:hover {
 <button onclick="restartGame()">Recomeçar aventura</button>
 
 <script>
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const TILE = 32;
-const COLS = 30;
-const ROWS = 18;
+const W = canvas.width;
+const H = canvas.height;
 
 let keys = {};
-let gameOver = false;
-let victory = false;
+let mouseRight = false;
+
+let state = "intro";
+let player;
+let enemies = [];
+let obstacles = [];
+let boss = null;
+let particles = [];
+
 let kills = 0;
 let bossCreated = false;
 let bossDefeated = false;
-
-let player;
-let enemies;
-let obstacles;
-let boss;
+let storyPage = 0;
+let introTimer = 0;
 
 const healthText = document.getElementById("health");
 const potionText = document.getElementById("potions");
 const killsText = document.getElementById("kills");
 const bossText = document.getElementById("boss");
 const message = document.getElementById("message");
+
+const TILE = 32;
 
 function restartGame() {
     player = {
@@ -136,39 +142,55 @@ function restartGame() {
         direction: "down",
         attackCooldown: 0,
         attackTime: 0,
+        attackAngle: Math.PI / 2,
         invincible: 0,
-        attackAngle: 0
+        defending: false,
+        defenseCooldown: 0
     };
 
     enemies = [];
     obstacles = [];
+    particles = [];
     boss = null;
 
     kills = 0;
     bossCreated = false;
     bossDefeated = false;
-    gameOver = false;
-    victory = false;
+    storyPage = 0;
+    introTimer = 0;
+
+    state = "intro";
 
     generateMap();
-    spawnEnemies(6);
+    updateHUD();
 
-    message.textContent = "Encontre os monstros da floresta!";
+    message.textContent = "Uma antiga história está prestes a começar...";
 }
 
+// MAPA MELHORADO
 function generateMap() {
     obstacles = [];
 
-    for (let i = 0; i < 75; i++) {
-        let x = Math.floor(Math.random() * (COLS - 2) + 1) * TILE;
-        let y = Math.floor(Math.random() * (ROWS - 2) + 1) * TILE;
+    // Mantém o centro livre para o jogador
+    // e a região do chefe livre para a batalha.
+    for (let i = 0; i < 65; i++) {
+        let x = 50 + Math.random() * (W - 100);
+        let y = 50 + Math.random() * (H - 100);
 
-        if (Math.abs(x - player.x) < 100 &&
-            Math.abs(y - player.y) < 100) continue;
+        if (Math.hypot(x - 480, y - 288) < 120) continue;
+        if (Math.hypot(x - 800, y - 288) < 100) continue;
+
+        // Evita árvores muito próximas umas das outras.
+        let crowded = obstacles.some(o =>
+            Math.hypot(x - o.x, y - o.y) < 58
+        );
+
+        if (crowded) continue;
 
         obstacles.push({
             x, y,
-            type: Math.random() > 0.5 ? "tree" : "rock"
+            type: Math.random() > 0.35 ? "tree" : "rock",
+            radius: 19
         });
     }
 }
@@ -177,92 +199,201 @@ function distance(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function spawnEnemies(amount) {
-    for (let i = 0; i < amount; i++) {
-        let enemy;
-
-        do {
-            enemy = {
-                x: 60 + Math.random() * 840,
-                y: 60 + Math.random() * 450,
-                hp: 40,
-                speed: 0.8 + Math.random() * 0.5,
-                cooldown: 0,
-                size: 23
-            };
-        } while (distance(enemy, player) < 150);
-
-        enemies.push(enemy);
-    }
-}
-
 function collides(x, y, size) {
     if (x < size || y < size ||
-        x > canvas.width - size ||
-        y > canvas.height - size) return true;
+        x > W - size || y > H - size) return true;
 
     return obstacles.some(o =>
-        Math.abs(x - o.x) < 25 + size / 2 &&
-        Math.abs(y - o.y) < 25 + size / 2
+        Math.hypot(x - o.x, y - o.y) < size / 2 + o.radius
     );
 }
 
-// MOVIMENTAÇÃO
-function movePlayer() {
-    let dx = 0;
-    let dy = 0;
+// MOVIMENTO DOS PERSONAGENS
+function moveEntity(entity, dx, dy, size) {
+    let moved = false;
 
-    if (keys["w"] || keys["ArrowUp"]) {
-        dy = -1;
-        player.direction = "up";
+    if (!collides(entity.x + dx, entity.y, size)) {
+        entity.x += dx;
+        moved = true;
     }
 
-    if (keys["s"] || keys["ArrowDown"]) {
-        dy = 1;
-        player.direction = "down";
+    if (!collides(entity.x, entity.y + dy, size)) {
+        entity.y += dy;
+        moved = true;
     }
 
-    if (keys["a"] || keys["ArrowLeft"]) {
-        dx = -1;
-        player.direction = "left";
-    }
+    return moved;
+}
 
-    if (keys["d"] || keys["ArrowRight"]) {
-        dx = 1;
-        player.direction = "right";
-    }
+function spawnEnemies(amount) {
+    for (let i = 0; i < amount; i++) {
+        let enemy = null;
 
-    if (dx && dy) {
-        dx *= 0.707;
-        dy *= 0.707;
-    }
+        for (let attempt = 0; attempt < 150; attempt++) {
+            let candidate = {
+                x: 50 + Math.random() * (W - 100),
+                y: 50 + Math.random() * (H - 100)
+            };
 
-    if (!collides(player.x + dx * player.speed, player.y, player.size)) {
-        player.x += dx * player.speed;
-    }
+            if (distance(candidate, player) < 170) continue;
+            if (collides(candidate.x, candidate.y, 24)) continue;
 
-    if (!collides(player.x, player.y + dy * player.speed, player.size)) {
-        player.y += dy * player.speed;
+            enemy = {
+                x: candidate.x,
+                y: candidate.y,
+                hp: 50,
+                maxHp: 50,
+                speed: 1.1,
+                cooldown: 0,
+                stuck: 0,
+                size: 24,
+                flash: 0
+            };
+
+            break;
+        }
+
+        if (enemy) enemies.push(enemy);
     }
 }
 
-// ATAQUE COM ESPADA
-function attack() {
-    if (player.attackCooldown > 0 || gameOver || victory) return;
+// HISTÓRIA
+function drawDialogue(title, lines, hint) {
+    ctx.fillStyle = "rgba(0,0,0,0.85)";
+    ctx.fillRect(70, 150, 820, 280);
 
-    player.attackCooldown = 25;
+    ctx.strokeStyle = "#b89b60";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(70, 150, 820, 280);
+
+    ctx.textAlign = "center";
+
+    ctx.fillStyle = "#e6ca84";
+    ctx.font = "bold 29px Georgia";
+    ctx.fillText(title, W / 2, 205);
+
+    ctx.fillStyle = "#eee8d7";
+    ctx.font = "19px Georgia";
+
+    lines.forEach((line, i) => {
+        ctx.fillText(line, W / 2, 265 + i * 34);
+    });
+
+    ctx.fillStyle = "#c9ad70";
+    ctx.font = "15px Georgia";
+    ctx.fillText(hint, W / 2, 390);
+
+    ctx.textAlign = "left";
+}
+
+function drawIntro() {
+    ctx.fillStyle = "#100f12";
+    ctx.fillRect(0, 0, W, H);
+
+    // Silhuetas da vila em chamas
+    ctx.fillStyle = "#30241f";
+    for (let i = 0; i < 10; i++) {
+        let x = i * 110;
+        ctx.fillRect(x, 360, 80, 100);
+        ctx.fillRect(x + 10, 330, 60, 40);
+    }
+
+    // Luzes do incêndio
+    for (let i = 0; i < 35; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? "#c45a27" : "#e4a23c";
+        ctx.fillRect(
+            Math.random() * W,
+            280 + Math.random() * 170,
+            4, 7
+        );
+    }
+
+    if (storyPage === 0) {
+        drawDialogue(
+            "THE LAST LIGHT",
+            [
+                "Há muito tempo, o reino vivia em paz.",
+                "Até que uma noite, uma entidade das sombras atacou",
+                "a pequena vila onde dois irmãos viviam."
+            ],
+            "PRESSIONE ENTER PARA CONTINUAR"
+        );
+    }
+
+    if (storyPage === 1) {
+        drawDialogue(
+            "A NOITE DA PERDA",
+            [
+                "Durante o ataque, o protagonista tentou proteger",
+                "seu irmão mais novo.",
+                "Mas uma criatura das sombras os separou."
+            ],
+            "PRESSIONE ENTER PARA CONTINUAR"
+        );
+    }
+
+    if (storyPage === 2) {
+        drawDialogue(
+            "UMA PROMESSA",
+            [
+                "Quando acordou, a vila estava destruída.",
+                "Seu irmão havia desaparecido.",
+                "Jurando encontrá-lo, partiu em direção à floresta."
+            ],
+            "PRESSIONE ENTER PARA COMEÇAR A JORNADA"
+        );
+    }
+}
+
+// PARTÍCULAS
+function createParticles(x, y, color) {
+    for (let i = 0; i < 9; i++) {
+        particles.push({
+            x, y,
+            dx: (Math.random() - 0.5) * 5,
+            dy: (Math.random() - 0.5) * 5,
+            life: 20,
+            color
+        });
+    }
+}
+
+function updateParticles() {
+    particles.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        p.life--;
+    });
+
+    particles = particles.filter(p => p.life > 0);
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        ctx.globalAlpha = p.life / 20;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 5, 5);
+    });
+
+    ctx.globalAlpha = 1;
+}
+
+// ATAQUE
+function attack() {
+    if (state !== "playing") return;
+    if (player.attackCooldown > 0 || player.defending) return;
+
+    player.attackCooldown = 28;
     player.attackTime = 12;
 
-    const range = 75;
+    const range = 78;
     const halfArc = 0.85;
 
-    enemies.forEach(enemy => {
-        if (enemy.hp <= 0) return;
-
-        let dx = enemy.x - player.x;
-        let dy = enemy.y - player.y;
-
+    function hitTarget(target) {
+        let dx = target.x - player.x;
+        let dy = target.y - player.y;
         let dist = Math.hypot(dx, dy);
+
         let angle = Math.atan2(dy, dx);
 
         let difference = Math.atan2(
@@ -271,33 +402,63 @@ function attack() {
         );
 
         if (dist < range && Math.abs(difference) < halfArc) {
-            enemy.hp -= 25;
+            target.hp -= 25;
+            target.flash = 8;
+
+            createParticles(target.x, target.y, "#8edcff");
+
+            // Empurra o inimigo para trás
+            let push = target === boss ? 9 : 17;
+            let nx = dx / (dist || 1);
+            let ny = dy / (dist || 1);
+
+            if (!collides(target.x + nx * push, target.y + ny * push, target.size || 24)) {
+                target.x += nx * push;
+                target.y += ny * push;
+            }
         }
+    }
+
+    enemies.forEach(enemy => {
+        if (enemy.hp > 0) hitTarget(enemy);
     });
 
-    if (boss && boss.hp > 0) {
-        let dx = boss.x - player.x;
-        let dy = boss.y - player.y;
+    if (boss && boss.hp > 0) hitTarget(boss);
+}
 
-        let dist = Math.hypot(dx, dy);
-        let angle = Math.atan2(dy, dx);
+// DEFESA
+function updateDefense() {
+    player.defending =
+        (keys["shift"] || keys["q"] || mouseRight) &&
+        player.defenseCooldown <= 0;
 
-        let difference = Math.atan2(
-            Math.sin(angle - player.attackAngle),
-            Math.cos(angle - player.attackAngle)
-        );
+    if (player.defenseCooldown > 0) {
+        player.defenseCooldown--;
+    }
+}
 
-        if (dist < range + 15 && Math.abs(difference) < halfArc) {
-            boss.hp -= 25;
-        }
+function damagePlayer(amount) {
+    if (player.invincible > 0 || state !== "playing") return;
+
+    if (player.defending) {
+        amount = Math.ceil(amount * 0.2);
+        createParticles(player.x, player.y, "#8edcff");
+    }
+
+    player.hp -= amount;
+    player.invincible = 30;
+
+    if (player.hp <= 0) {
+        player.hp = 0;
+        state = "gameover";
+        message.textContent = "Você foi derrotado...";
     }
 }
 
 // POÇÕES
 function usePotion() {
-    if (player.potions <= 0 ||
-        player.hp >= player.maxHp ||
-        gameOver || victory) return;
+    if (state !== "playing") return;
+    if (player.potions <= 0 || player.hp >= player.maxHp) return;
 
     player.potions--;
     player.hp = Math.min(player.maxHp, player.hp + 35);
@@ -305,7 +466,7 @@ function usePotion() {
     message.textContent = "Você recuperou 35 pontos de vida!";
 }
 
-// INIMIGOS
+// INTELIGÊNCIA DOS INIMIGOS
 function updateEnemies() {
     enemies.forEach(enemy => {
         if (enemy.hp <= 0) return;
@@ -314,18 +475,36 @@ function updateEnemies() {
         let dy = player.y - enemy.y;
         let d = Math.hypot(dx, dy);
 
-        if (d > 30) {
-            let nx = enemy.x + dx / d * enemy.speed;
-            let ny = enemy.y + dy / d * enemy.speed;
+        if (d > 34) {
+            let vx = dx / (d || 1) * enemy.speed;
+            let vy = dy / (d || 1) * enemy.speed;
 
-            if (!collides(nx, enemy.y, enemy.size)) enemy.x = nx;
-            if (!collides(enemy.x, ny, enemy.size)) enemy.y = ny;
+            let moved = moveEntity(enemy, vx, vy, enemy.size);
+
+            // Se encontrar uma árvore, tenta contorná-la.
+            if (!moved) {
+                let alternatives = [
+                    [enemy.speed, 0],
+                    [-enemy.speed, 0],
+                    [0, enemy.speed],
+                    [0, -enemy.speed],
+                    [enemy.speed, enemy.speed],
+                    [-enemy.speed, -enemy.speed]
+                ];
+
+                for (let [ax, ay] of alternatives) {
+                    if (moveEntity(enemy, ax, ay, enemy.size)) {
+                        break;
+                    }
+                }
+            }
         } else if (enemy.cooldown <= 0) {
-            damagePlayer(8);
-            enemy.cooldown = 50;
+            damagePlayer(10);
+            enemy.cooldown = 55;
         }
 
         if (enemy.cooldown > 0) enemy.cooldown--;
+        if (enemy.flash > 0) enemy.flash--;
     });
 
     let before = enemies.length;
@@ -344,14 +523,17 @@ function createBoss() {
 
     boss = {
         x: 800,
-        y: 280,
-        hp: 300,
-        maxHp: 300,
-        speed: 1.1,
-        cooldown: 0
+        y: 288,
+        hp: 400,
+        maxHp: 400,
+        speed: 1.15,
+        cooldown: 0,
+        flash: 0,
+        size: 42
     };
 
-    message.textContent = "O SENHOR DAS SOMBRAS DESPERTOU!";
+    message.textContent =
+        "O SENHOR DAS SOMBRAS APARECEU!";
 }
 
 function updateBoss() {
@@ -361,67 +543,102 @@ function updateBoss() {
     let dy = player.y - boss.y;
     let d = Math.hypot(dx, dy);
 
-    if (d > 45) {
-        let nx = boss.x + dx / d * boss.speed;
-        let ny = boss.y + dy / d * boss.speed;
+    if (d > 50) {
+        let vx = dx / (d || 1) * boss.speed;
+        let vy = dy / (d || 1) * boss.speed;
 
-        if (!collides(nx, boss.y, 38)) boss.x = nx;
-        if (!collides(boss.x, ny, 38)) boss.y = ny;
+        if (!moveEntity(boss, vx, vy, boss.size)) {
+            // O chefe também tenta contornar obstáculos.
+            moveEntity(boss, -vy, vx, boss.size);
+        }
     } else if (boss.cooldown <= 0) {
-        damagePlayer(20);
-        boss.cooldown = 65;
+        damagePlayer(25);
+        boss.cooldown = 75;
     }
 
     if (boss.cooldown > 0) boss.cooldown--;
+    if (boss.flash > 0) boss.flash--;
 
     if (boss.hp <= 0 && !bossDefeated) {
         bossDefeated = true;
-        victory = true;
-        message.textContent = "VITÓRIA! O SENHOR DAS SOMBRAS FOI DERROTADO!";
+        state = "ending";
+        message.textContent =
+            "Você derrotou a entidade das sombras!";
     }
 }
 
-// DANO
-function damagePlayer(amount) {
-    if (player.invincible > 0) return;
+// MOVIMENTO
+function movePlayer() {
+    let dx = 0;
+    let dy = 0;
 
-    player.hp -= amount;
-    player.invincible = 35;
+    if (keys["w"] || keys["ArrowUp"]) dy = -1;
+    if (keys["s"] || keys["ArrowDown"]) dy = 1;
+    if (keys["a"] || keys["ArrowLeft"]) dx = -1;
+    if (keys["d"] || keys["ArrowRight"]) dx = 1;
 
-    if (player.hp <= 0) {
-        player.hp = 0;
-        gameOver = true;
-        message.textContent = "Você foi derrotado...";
+    if (dx && dy) {
+        dx *= 0.707;
+        dy *= 0.707;
     }
-}
 
-// MAPA
-function drawMap() {
-    for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-            ctx.fillStyle = (x + y) % 2 === 0 ? "#365337" : "#304a31";
-            ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    if (dx !== 0 || dy !== 0) {
+        if (!player.defending) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+                player.direction = dx > 0 ? "right" : "left";
+            } else {
+                player.direction = dy > 0 ? "down" : "up";
+            }
         }
     }
+
+    let speed = player.defending ? 1.5 : player.speed;
+
+    moveEntity(
+        player,
+        dx * speed,
+        dy * speed,
+        player.size
+    );
+}
+
+// DESENHO DO MAPA
+function drawMap() {
+    for (let y = 0; y < H / TILE; y++) {
+        for (let x = 0; x < W / TILE; x++) {
+            ctx.fillStyle = (x + y) % 2 === 0
+                ? "#365337" : "#304a31";
+
+            ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+
+            ctx.fillStyle = "rgba(20,35,20,0.2)";
+            ctx.fillRect(x * TILE + 8, y * TILE + 8, 3, 3);
+        }
+    }
+
+    // Trilha de terra
+    ctx.fillStyle = "#66543a";
+    ctx.fillRect(0, 270, W, 36);
+    ctx.fillRect(450, 0, 60, H);
 
     obstacles.forEach(o => {
         if (o.type === "tree") {
             ctx.fillStyle = "#513d29";
-            ctx.fillRect(o.x - 5, o.y, 10, 23);
+            ctx.fillRect(o.x - 6, o.y, 12, 25);
 
             ctx.fillStyle = "#183d23";
-            ctx.fillRect(o.x - 17, o.y - 20, 34, 26);
+            ctx.fillRect(o.x - 20, o.y - 20, 40, 29);
 
             ctx.fillStyle = "#28532e";
-            ctx.fillRect(o.x - 11, o.y - 27, 22, 16);
+            ctx.fillRect(o.x - 13, o.y - 32, 26, 19);
         } else {
             ctx.fillStyle = "#777b72";
-            ctx.fillRect(o.x - 12, o.y - 9, 24, 18);
+            ctx.fillRect(o.x - 13, o.y - 9, 26, 18);
         }
     });
 }
 
-// JOGADOR E ANIMAÇÃO DA ESPADA
+// JOGADOR
 function drawPlayer() {
     if (player.invincible > 0 &&
         Math.floor(player.invincible / 5) % 2 === 0) return;
@@ -432,16 +649,37 @@ function drawPlayer() {
     ctx.fillStyle = "#d8b18b";
     ctx.fillRect(player.x - 8, player.y - 15, 16, 15);
 
-    ctx.fillStyle = "#273f65";
+    ctx.fillStyle = player.defending ? "#638baf" : "#273f65";
     ctx.fillRect(player.x - 11, player.y - 2, 22, 20);
 
     ctx.fillStyle = "#b9b9c0";
     ctx.fillRect(player.x - 7, player.y - 19, 14, 6);
 
+    // ESCUDO DE DEFESA
+    if (player.defending) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(player.attackAngle);
+
+        ctx.fillStyle = "#a4c9e4";
+        ctx.beginPath();
+        ctx.moveTo(12, -19);
+        ctx.lineTo(33, -14);
+        ctx.lineTo(33, 14);
+        ctx.lineTo(12, 19);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = "#e5d49b";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // ESPADA ANIMADA
     if (player.attackTime > 0) {
         let progress = 1 - player.attackTime / 12;
-
-        // Animação de balanço
         let swing = Math.sin(progress * Math.PI);
 
         ctx.save();
@@ -450,16 +688,11 @@ function drawPlayer() {
         let angle = player.attackAngle - 0.9 + progress * 1.8;
         ctx.rotate(angle);
 
-        // Rastro luminoso
         ctx.beginPath();
         ctx.arc(0, 0, 43, -0.9, 0.9);
-        ctx.strokeStyle = `rgba(100, 200, 255, ${0.8 * swing})`;
+        ctx.strokeStyle = `rgba(100,200,255,${0.8 * swing})`;
         ctx.lineWidth = 8 * swing;
         ctx.stroke();
-
-        // Lâmina da espada
-        ctx.save();
-        ctx.rotate(-0.2);
 
         ctx.beginPath();
         ctx.moveTo(15, 0);
@@ -469,7 +702,6 @@ function drawPlayer() {
         ctx.lineCap = "round";
         ctx.stroke();
 
-        // Brilho azul
         ctx.beginPath();
         ctx.moveTo(19, -2);
         ctx.lineTo(49, -2);
@@ -477,11 +709,9 @@ function drawPlayer() {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Cabo
         ctx.fillStyle = "#bd914d";
         ctx.fillRect(5, -4, 12, 8);
 
-        ctx.restore();
         ctx.restore();
     }
 }
@@ -489,26 +719,29 @@ function drawPlayer() {
 // INIMIGOS
 function drawEnemies() {
     enemies.forEach(e => {
-        ctx.fillStyle = "#17121b";
+        ctx.fillStyle = e.flash > 0 ? "#ffffff" : "#17121b";
         ctx.fillRect(e.x - 12, e.y - 12, 24, 24);
 
-        ctx.fillStyle = "#a53c43";
+        ctx.fillStyle = e.flash > 0 ? "#ffcccc" : "#a53c43";
         ctx.fillRect(e.x - 8, e.y - 9, 16, 14);
 
         ctx.fillStyle = "#fff";
         ctx.fillRect(e.x - 6, e.y - 4, 4, 4);
         ctx.fillRect(e.x + 3, e.y - 4, 4, 4);
 
+        ctx.fillStyle = "#222";
+        ctx.fillRect(e.x - 15, e.y - 21, 30, 4);
+
         ctx.fillStyle = "#e44a42";
-        ctx.fillRect(e.x - 15, e.y - 21, 30 * e.hp / 40, 4);
+        ctx.fillRect(e.x - 15, e.y - 21, 30 * e.hp / e.maxHp, 4);
     });
 }
 
-// CHEFE VISUAL
+// CHEFE
 function drawBoss() {
     if (!boss || boss.hp <= 0) return;
 
-    ctx.fillStyle = "#130d1a";
+    ctx.fillStyle = boss.flash > 0 ? "#ffffff" : "#130d1a";
     ctx.fillRect(boss.x - 25, boss.y - 25, 50, 50);
 
     ctx.fillStyle = "#70234c";
@@ -533,29 +766,45 @@ function drawBoss() {
     ctx.fillText("SENHOR DAS SOMBRAS", 405, 15);
 }
 
-// TELA FINAL
-function drawEndScreen() {
-    if (!gameOver && !victory) return;
+// FINAL DA HISTÓRIA
+function drawEnding() {
+    ctx.fillStyle = "#100f12";
+    ctx.fillRect(0, 0, W, H);
 
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = victory ? "#e4c77a" : "#b94c4c";
-    ctx.font = "bold 45px Georgia";
-    ctx.textAlign = "center";
-
-    ctx.fillText(
-        victory ? "VITÓRIA!" : "FIM DE JOGO",
-        canvas.width / 2, 250
+    drawDialogue(
+        "O REENCONTRO",
+        [
+            "Com a entidade derrotada, a escuridão desapareceu.",
+            "Entre as ruínas, uma voz familiar chamou pelo herói.",
+            "Era seu irmão. Ele havia sobrevivido!",
+            "Depois de tanto tempo, os dois finalmente se reencontraram."
+        ],
+        "FIM DA PRIMEIRA JORNADA"
     );
+
+    ctx.fillStyle = "#e4c77a";
+    ctx.font = "bold 22px Georgia";
+    ctx.textAlign = "center";
+    ctx.fillText("THE LAST LIGHT", W / 2, 470);
+    ctx.textAlign = "left";
+}
+
+// DERROTA
+function drawGameOver() {
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#b94c4c";
+    ctx.font = "bold 45px Georgia";
+    ctx.fillText("FIM DE JOGO", W / 2, 250);
 
     ctx.fillStyle = "white";
-    ctx.font = "22px Georgia";
-    ctx.fillText(
-        victory ? "A luz voltou ao reino." : "A escuridão venceu.",
-        canvas.width / 2, 300
-    );
+    ctx.font = "20px Georgia";
+    ctx.fillText("Sua jornada ainda não terminou...", W / 2, 300);
 
+    ctx.font = "16px Georgia";
+    ctx.fillText("Clique em Recomeçar para tentar novamente.", W / 2, 350);
     ctx.textAlign = "left";
 }
 
@@ -567,17 +816,19 @@ function updateHUD() {
 
     bossText.textContent =
         bossDefeated ? "Chefe: Derrotado" :
-        boss ? "Chefe: " + boss.hp + "/300" :
+        boss ? "Chefe: " + boss.hp + "/400" :
         "Chefe: Adormecido";
 }
 
 // ATUALIZAÇÃO
 function update() {
-    if (gameOver || victory) return;
+    if (state !== "playing") return;
 
     movePlayer();
+    updateDefense();
     updateEnemies();
     updateBoss();
+    updateParticles();
 
     if (player.attackCooldown > 0) player.attackCooldown--;
     if (player.attackTime > 0) player.attackTime--;
@@ -586,26 +837,53 @@ function update() {
     updateHUD();
 }
 
+// DESENHO PRINCIPAL
 function draw() {
+    if (state === "intro") {
+        drawIntro();
+        return;
+    }
+
+    if (state === "ending") {
+        drawEnding();
+        return;
+    }
+
     drawMap();
     drawEnemies();
     drawBoss();
+    drawParticles();
     drawPlayer();
-    drawEndScreen();
+
+    if (state === "gameover") {
+        drawGameOver();
+    }
 }
 
+// LOOP
 function gameLoop() {
     update();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-// CONTROLES DE TECLADO
+// TECLADO
 window.addEventListener("keydown", e => {
     const key = e.key.toLowerCase();
 
     if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) {
         e.preventDefault();
+    }
+
+    if (state === "intro" && key === "enter") {
+        storyPage++;
+
+        if (storyPage >= 3) {
+            state = "playing";
+            spawnEnemies(6);
+            message.textContent = "Encontre seu irmão!";
+        }
+        return;
     }
 
     keys[key] = true;
@@ -617,29 +895,42 @@ window.addEventListener("keyup", e => {
     keys[e.key.toLowerCase()] = false;
 });
 
-// ATAQUE COM BOTÃO ESQUERDO DO MOUSE
+// MOUSE ESQUERDO: ATACAR
 canvas.addEventListener("mousedown", e => {
-    if (e.button !== 0) return;
+    if (e.button === 0 && state === "playing") {
+        const rect = canvas.getBoundingClientRect();
 
-    const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * W / rect.width;
+        const my = (e.clientY - rect.top) * H / rect.height;
 
-    const mouseX = (e.clientX - rect.left) * canvas.width / rect.width;
-    const mouseY = (e.clientY - rect.top) * canvas.height / rect.height;
+        const dx = mx - player.x;
+        const dy = my - player.y;
 
-    const dx = mouseX - player.x;
-    const dy = mouseY - player.y;
+        player.attackAngle = Math.atan2(dy, dx);
 
-    player.attackAngle = Math.atan2(dy, dx);
+        if (Math.abs(dx) > Math.abs(dy)) {
+            player.direction = dx > 0 ? "right" : "left";
+        } else {
+            player.direction = dy > 0 ? "down" : "up";
+        }
 
-    if (Math.abs(dx) > Math.abs(dy)) {
-        player.direction = dx > 0 ? "right" : "left";
-    } else {
-        player.direction = dy > 0 ? "down" : "up";
+        attack();
     }
 
-    attack();
+    // MOUSE DIREITO: DEFENDER
+    if (e.button === 2) {
+        mouseRight = true;
+        e.preventDefault();
+    }
 });
 
+window.addEventListener("mouseup", e => {
+    if (e.button === 2) mouseRight = false;
+});
+
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+// INICIAR
 restartGame();
 gameLoop();
 
