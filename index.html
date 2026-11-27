@@ -123,6 +123,40 @@ function drawCinematic(){
   panel("A CIDADE CAIU",["Uma praga transformou os habitantes em criaturas famintas.","Valedouro foi tomada por uma horda de zumbis.","Arthur ouviu um pedido de socorro: alguém ainda estava vivo!"],"PRESSIONE ENTER PARA COMEÇAR");
  }
 }
+function drawSword(){
+  if(!player)return;
+  ctx.save();
+  ctx.translate(player.x,player.y-3);
+  ctx.rotate(player.face);
+  // Cabo e pomo
+  rect(7,-3,13,6,"#68452c");
+  rect(5,-4,4,8,"#c6a35e");
+  // Guarda
+  rect(18,-10,5,20,"#b99a5b");
+  rect(20,-8,3,16,"#e0c77e");
+  // Lâmina apontada exatamente para o cursor
+  ctx.fillStyle="#dce8ef";
+  ctx.beginPath();
+  ctx.moveTo(22,-5);
+  ctx.lineTo(59,-3);
+  ctx.lineTo(69,0);
+  ctx.lineTo(59,3);
+  ctx.lineTo(22,5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle="#718391";
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+  ctx.strokeStyle="#ffffff";
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(25,-3);ctx.lineTo(59,-1);ctx.stroke();
+  if(attackFlash>0){
+    ctx.strokeStyle="rgba(255,238,170,.9)";
+    ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(70,0);ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawCity(apocalypse=false){
  // chão em camadas, blocos e caminhos
  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,apocalypse?"#303a39":"#385743");g.addColorStop(1,apocalypse?"#202b2b":"#263f32");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -192,7 +226,8 @@ function update(){
  gameTime++;let dx=0,dy=0;
  if(keys.w||keys.arrowup)dy--;if(keys.s||keys.arrowdown)dy++;if(keys.a||keys.arrowleft)dx--;if(keys.d||keys.arrowright)dx++;
  if(dx&&dy){dx*=.707;dy*=.707;}player.defending=!!(keys.shift||mouse.right);if(player.defending){dx*=.45;dy*=.45;}player.x=Math.max(18,Math.min(W-18,player.x+dx*player.speed));player.y=Math.max(35,Math.min(H-18,player.y+dy*player.speed));
- if(dx||dy)player.face=Math.atan2(dy,dx);
+ // A direção da espada depende somente do cursor, nunca da movimentação.
+  player.face=Math.atan2(mouse.y-player.y,mouse.x-player.x);
  if(attackCooldown>0)attackCooldown--;if(attackFlash>0)attackFlash--;if(player.inv>0)player.inv--;
  for(const z of zombies){if(z.hp<=0)continue;let d=dist(player,z);if(d>29){z.x+=(player.x-z.x)/d*z.speed;z.y+=(player.y-z.y)/d*z.speed;}else if(z.cool<=0){hurt(7);z.cool=55;}if(z.cool>0)z.cool--;if(z.flash>0)z.flash--;}
  let dead=zombies.filter(z=>z.hp<=0).length;
@@ -256,6 +291,9 @@ function updateMouse(e){
  const r=canvas.getBoundingClientRect();
  mouse.x=(e.clientX-r.left)*(canvas.width/r.width);
  mouse.y=(e.clientY-r.top)*(canvas.height/r.height);
+ if(player && state==="playing"){
+  player.face=Math.atan2(mouse.y-player.y,mouse.x-player.x);
+ }
 }
 canvas.addEventListener("mousemove",updateMouse);
 canvas.addEventListener("mousedown",e=>{
