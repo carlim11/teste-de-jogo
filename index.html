@@ -1,0 +1,582 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Last Light</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #11130f;
+    color: white;
+    font-family: Georgia, serif;
+    text-align: center;
+}
+
+h1 {
+    color: #d6bd78;
+    letter-spacing: 5px;
+    margin: 15px;
+}
+
+#game {
+    display: block;
+    width: min(960px, 96vw);
+    height: auto;
+    margin: auto;
+    border: 4px solid #887448;
+    background: #263c28;
+    image-rendering: pixelated;
+}
+
+#hud {
+    width: min(960px, 96vw);
+    margin: 10px auto;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #25251e;
+    padding: 12px;
+    border: 1px solid #887448;
+}
+
+#message {
+    color: #e5ce8b;
+    min-height: 25px;
+    margin: 10px;
+}
+
+button {
+    background: #776039;
+    color: white;
+    border: 1px solid #d6bd78;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #a18448;
+}
+
+#instructions {
+    color: #c6c1a9;
+    margin: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>THE LAST LIGHT</h1>
+
+<div id="hud">
+    <span id="health">Vida: 100</span>
+    <span id="potions">Poções: 3</span>
+    <span id="kills">Inimigos: 0/6</span>
+    <span id="boss">Chefe: Adormecido</span>
+</div>
+
+<canvas id="game" width="960" height="576"></canvas>
+
+<div id="message">
+    Sua jornada começa na Floresta Esquecida...
+</div>
+
+<p id="instructions">
+    WASD ou SETAS: Mover |
+    ESPAÇO: Atacar |
+    E: Usar poção
+</p>
+
+<button onclick="restartGame()">Recomeçar aventura</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const TILE = 32;
+const COLS = 30;
+const ROWS = 18;
+
+let keys = {};
+let gameOver = false;
+let victory = false;
+let kills = 0;
+let bossCreated = false;
+let bossDefeated = false;
+
+let player;
+let enemies;
+let obstacles;
+let boss;
+
+const healthText = document.getElementById("health");
+const potionText = document.getElementById("potions");
+const killsText = document.getElementById("kills");
+const bossText = document.getElementById("boss");
+const message = document.getElementById("message");
+
+function restartGame() {
+    player = {
+        x: 480,
+        y: 288,
+        size: 22,
+        speed: 3,
+        hp: 100,
+        maxHp: 100,
+        potions: 3,
+        direction: "down",
+        attackCooldown: 0,
+        attackTime: 0,
+        invincible: 0
+    };
+
+    enemies = [];
+    obstacles = [];
+    boss = null;
+
+    kills = 0;
+    bossCreated = false;
+    bossDefeated = false;
+    gameOver = false;
+    victory = false;
+
+    generateMap();
+    spawnEnemies(5);
+
+    message.textContent =
+        "Encontre e derrote os monstros da floresta!";
+}
+
+function generateMap() {
+    obstacles = [];
+
+    // Árvores e pedras espalhadas pelo mapa
+    for (let i = 0; i < 75; i++) {
+        let x = Math.floor(Math.random() * (COLS - 2) + 1) * TILE;
+        let y = Math.floor(Math.random() * (ROWS - 2) + 1) * TILE;
+
+        if (Math.abs(x - player.x) < 100 &&
+            Math.abs(y - player.y) < 100) continue;
+
+        obstacles.push({
+            x, y,
+            type: Math.random() > 0.5 ? "tree" : "rock"
+        });
+    }
+}
+
+function spawnEnemies(amount) {
+    for (let i = 0; i < amount; i++) {
+        let enemy;
+
+        do {
+            enemy = {
+                x: 60 + Math.random() * 840,
+                y: 60 + Math.random() * 450,
+                hp: 40,
+                speed: 0.8 + Math.random() * 0.5,
+                cooldown: 0,
+                size: 23
+            };
+        } while (distance(enemy, player) < 150);
+
+        enemies.push(enemy);
+    }
+}
+
+function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function collides(x, y, size) {
+    if (x < size || y < size ||
+        x > canvas.width - size ||
+        y > canvas.height - size) return true;
+
+    return obstacles.some(o =>
+        Math.abs(x - o.x) < 25 + size / 2 &&
+        Math.abs(y - o.y) < 25 + size / 2
+    );
+}
+
+function movePlayer() {
+    let dx = 0;
+    let dy = 0;
+
+    if (keys["w"] || keys["ArrowUp"]) {
+        dy = -1;
+        player.direction = "up";
+    }
+
+    if (keys["s"] || keys["ArrowDown"]) {
+        dy = 1;
+        player.direction = "down";
+    }
+
+    if (keys["a"] || keys["ArrowLeft"]) {
+        dx = -1;
+        player.direction = "left";
+    }
+
+    if (keys["d"] || keys["ArrowRight"]) {
+        dx = 1;
+        player.direction = "right";
+    }
+
+    if (dx && dy) {
+        dx *= 0.707;
+        dy *= 0.707;
+    }
+
+    if (!collides(player.x + dx * player.speed, player.y, player.size)) {
+        player.x += dx * player.speed;
+    }
+
+    if (!collides(player.x, player.y + dy * player.speed, player.size)) {
+        player.y += dy * player.speed;
+    }
+}
+
+function attack() {
+    if (player.attackCooldown > 0 || gameOver || victory) return;
+
+    player.attackCooldown = 25;
+    player.attackTime = 10;
+
+    let range = 65;
+
+    enemies.forEach(enemy => {
+        if (enemy.hp <= 0) return;
+
+        let dx = enemy.x - player.x;
+        let dy = enemy.y - player.y;
+
+        let inFront = false;
+
+        if (player.direction === "up" && dy < 0 && Math.abs(dx) < 55) inFront = true;
+        if (player.direction === "down" && dy > 0 && Math.abs(dx) < 55) inFront = true;
+        if (player.direction === "left" && dx < 0 && Math.abs(dy) < 55) inFront = true;
+        if (player.direction === "right" && dx > 0 && Math.abs(dy) < 55) inFront = true;
+
+        if (inFront && distance(enemy, player) < range) {
+            enemy.hp -= 25;
+        }
+    });
+
+    if (boss && boss.hp > 0 &&
+        distance(boss, player) < range + 15) {
+        boss.hp -= 25;
+    }
+}
+
+function usePotion() {
+    if (player.potions <= 0 || player.hp >= player.maxHp ||
+        gameOver || victory) return;
+
+    player.potions--;
+    player.hp = Math.min(player.maxHp, player.hp + 35);
+
+    message.textContent = "Você usou uma poção e recuperou vida!";
+}
+
+function updateEnemies() {
+    enemies.forEach(enemy => {
+        if (enemy.hp <= 0) return;
+
+        let dx = player.x - enemy.x;
+        let dy = player.y - enemy.y;
+        let d = Math.hypot(dx, dy);
+
+        if (d > 30) {
+            let nx = enemy.x + dx / d * enemy.speed;
+            let ny = enemy.y + dy / d * enemy.speed;
+
+            if (!collides(nx, enemy.y, enemy.size)) enemy.x = nx;
+            if (!collides(enemy.x, ny, enemy.size)) enemy.y = ny;
+        } else if (enemy.cooldown <= 0) {
+            damagePlayer(8);
+            enemy.cooldown = 50;
+        }
+
+        if (enemy.cooldown > 0) enemy.cooldown--;
+    });
+
+    let before = enemies.length;
+    enemies = enemies.filter(e => e.hp > 0);
+
+    kills += before - enemies.length;
+
+    if (kills >= 6 && !bossCreated) {
+        createBoss();
+    }
+}
+
+function createBoss() {
+    bossCreated = true;
+
+    boss = {
+        x: 800,
+        y: 280,
+        hp: 300,
+        maxHp: 300,
+        speed: 1.1,
+        cooldown: 0
+    };
+
+    message.textContent =
+        "O SENHOR DAS SOMBRAS DESPERTOU! DERROTE-O!";
+}
+
+function updateBoss() {
+    if (!boss || boss.hp <= 0) return;
+
+    let dx = player.x - boss.x;
+    let dy = player.y - boss.y;
+    let d = Math.hypot(dx, dy);
+
+    if (d > 45) {
+        let nx = boss.x + dx / d * boss.speed;
+        let ny = boss.y + dy / d * boss.speed;
+
+        if (!collides(nx, boss.y, 38)) boss.x = nx;
+        if (!collides(boss.x, ny, 38)) boss.y = ny;
+    } else if (boss.cooldown <= 0) {
+        damagePlayer(20);
+        boss.cooldown = 65;
+    }
+
+    if (boss.cooldown > 0) boss.cooldown--;
+
+    if (boss.hp <= 0 && !bossDefeated) {
+        bossDefeated = true;
+        victory = true;
+        message.textContent =
+            "VITÓRIA! Você derrotou o Senhor das Sombras!";
+    }
+}
+
+function damagePlayer(amount) {
+    if (player.invincible > 0) return;
+
+    player.hp -= amount;
+    player.invincible = 35;
+
+    if (player.hp <= 0) {
+        player.hp = 0;
+        gameOver = true;
+        message.textContent =
+            "Você foi derrotado... A escuridão venceu.";
+    }
+}
+
+function drawMap() {
+    for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+            ctx.fillStyle =
+                (x + y) % 2 === 0 ? "#365337" : "#304a31";
+
+            ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+
+            ctx.fillStyle = "#29412c";
+            ctx.fillRect(x * TILE + 8, y * TILE + 8, 3, 3);
+        }
+    }
+
+    obstacles.forEach(o => {
+        if (o.type === "tree") {
+            ctx.fillStyle = "#513d29";
+            ctx.fillRect(o.x - 5, o.y, 10, 23);
+
+            ctx.fillStyle = "#183d23";
+            ctx.fillRect(o.x - 17, o.y - 20, 34, 26);
+
+            ctx.fillStyle = "#28532e";
+            ctx.fillRect(o.x - 11, o.y - 27, 22, 16);
+        } else {
+            ctx.fillStyle = "#777b72";
+            ctx.fillRect(o.x - 12, o.y - 9, 24, 18);
+
+            ctx.fillStyle = "#999c91";
+            ctx.fillRect(o.x - 7, o.y - 10, 12, 5);
+        }
+    });
+}
+
+function drawPlayer() {
+    if (player.invincible > 0 &&
+        Math.floor(player.invincible / 5) % 2 === 0) return;
+
+    ctx.fillStyle = "#17201b";
+    ctx.fillRect(player.x - 10, player.y + 5, 20, 12);
+
+    ctx.fillStyle = "#d8b18b";
+    ctx.fillRect(player.x - 8, player.y - 15, 16, 15);
+
+    ctx.fillStyle = "#273f65";
+    ctx.fillRect(player.x - 11, player.y - 2, 22, 20);
+
+    ctx.fillStyle = "#b9b9c0";
+    ctx.fillRect(player.x - 7, player.y - 19, 14, 6);
+
+    // Espada
+    if (player.attackTime > 0) {
+        ctx.fillStyle = "#eeeeee";
+
+        let sx = player.x;
+        let sy = player.y;
+
+        if (player.direction === "up") sy -= 35;
+        if (player.direction === "down") sy += 35;
+        if (player.direction === "left") sx -= 35;
+        if (player.direction === "right") sx += 35;
+
+        ctx.fillRect(sx - 4, sy - 4, 8, 8);
+        ctx.fillStyle = "#d5ad55";
+        ctx.fillRect(sx - 3, sy - 3, 6, 6);
+    }
+}
+
+function drawEnemies() {
+    enemies.forEach(e => {
+        ctx.fillStyle = "#17121b";
+        ctx.fillRect(e.x - 12, e.y - 12, 24, 24);
+
+        ctx.fillStyle = "#a53c43";
+        ctx.fillRect(e.x - 8, e.y - 9, 16, 14);
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(e.x - 6, e.y - 4, 4, 4);
+        ctx.fillRect(e.x + 3, e.y - 4, 4, 4);
+
+        ctx.fillStyle = "#e44a42";
+        ctx.fillRect(e.x - 15, e.y - 21, 30 * e.hp / 40, 4);
+    });
+}
+
+function drawBoss() {
+    if (!boss || boss.hp <= 0) return;
+
+    ctx.fillStyle = "#130d1a";
+    ctx.fillRect(boss.x - 25, boss.y - 25, 50, 50);
+
+    ctx.fillStyle = "#70234c";
+    ctx.fillRect(boss.x - 20, boss.y - 18, 40, 40);
+
+    ctx.fillStyle = "#ff2929";
+    ctx.fillRect(boss.x - 12, boss.y - 10, 7, 7);
+    ctx.fillRect(boss.x + 6, boss.y - 10, 7, 7);
+
+    ctx.fillStyle = "#e0bd72";
+    ctx.fillRect(boss.x - 15, boss.y - 30, 8, 12);
+    ctx.fillRect(boss.x + 7, boss.y - 30, 8, 12);
+
+    ctx.fillStyle = "#222";
+    ctx.fillRect(320, 20, 320, 13);
+
+    ctx.fillStyle = "#b32645";
+    ctx.fillRect(320, 20, 320 * boss.hp / boss.maxHp, 13);
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Georgia";
+    ctx.fillText("SENHOR DAS SOMBRAS", 405, 15);
+}
+
+function drawEndScreen() {
+    if (!gameOver && !victory) return;
+
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = victory ? "#e4c77a" : "#b94c4c";
+    ctx.font = "bold 45px Georgia";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        victory ? "VITÓRIA!" : "FIM DE JOGO",
+        canvas.width / 2,
+        250
+    );
+
+    ctx.fillStyle = "white";
+    ctx.font = "22px Georgia";
+
+    ctx.fillText(
+        victory ? "A luz voltou ao reino." : "A escuridão venceu.",
+        canvas.width / 2,
+        300
+    );
+
+    ctx.textAlign = "left";
+}
+
+function updateHUD() {
+    healthText.textContent = "Vida: " + player.hp + "/100";
+    potionText.textContent = "Poções: " + player.potions;
+    killsText.textContent = "Inimigos: " + kills + "/6";
+
+    bossText.textContent =
+        bossDefeated ? "Chefe: Derrotado" :
+        boss ? "Chefe: " + boss.hp + "/300" :
+        "Chefe: Adormecido";
+}
+
+function update() {
+    if (gameOver || victory) return;
+
+    movePlayer();
+    updateEnemies();
+    updateBoss();
+
+    if (player.attackCooldown > 0) player.attackCooldown--;
+    if (player.attackTime > 0) player.attackTime--;
+    if (player.invincible > 0) player.invincible--;
+
+    updateHUD();
+}
+
+function draw() {
+    drawMap();
+    drawEnemies();
+    drawBoss();
+    drawPlayer();
+    drawEndScreen();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener("keydown", e => {
+    const key = e.key.toLowerCase();
+
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) {
+        e.preventDefault();
+    }
+
+    keys[key] = true;
+
+    if (key === " ") attack();
+    if (key === "e") usePotion();
+});
+
+window.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+});
+
+restartGame();
+gameLoop();
+
+</script>
+</body>
+</html>
