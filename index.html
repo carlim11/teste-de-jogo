@@ -30,6 +30,15 @@ button:hover{background:#947746}
 .screenButtons button{border-radius:6px;min-width:125px}
 #hud{font:14px Arial}
 button:focus-visible{outline:3px solid #f2d58c;outline-offset:3px}
+#extraControls{width:min(960px,96vw);margin:8px auto;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+#extraControls button{border-radius:6px;background:#283747}
+#orientationNotice{display:none;position:fixed;inset:0;z-index:30;background:#10151df2;color:#f4e4bd;align-items:center;justify-content:center;padding:28px;font:18px Arial}
+#orientationNotice .noticeCard{max-width:420px;border:2px solid #b99a5b;border-radius:14px;padding:28px;background:#202a36}
+#orientationNotice .phone{font-size:54px;margin-bottom:12px}
+@media (pointer:coarse) and (orientation:portrait){#orientationNotice{display:flex}}
+@media (pointer:coarse) and (orientation:landscape){body{padding:4px 0 8px}h1{font-size:clamp(17px,3vh,24px);margin:3px}#hud{margin:4px auto;padding:5px;font-size:11px}#gameWrap{width:min(96vw,calc((100dvh - 160px)*1.6))}#touchControls{margin:4px auto;align-items:center}#stickArea{width:92px;height:92px;flex-basis:92px}#stickKnob{left:24px;top:24px;width:40px;height:40px}#touchActions{grid-template-columns:repeat(4,minmax(58px,1fr))}#touchActions button{padding:9px 5px;font-size:10px}#instructions{display:none}#message{min-height:18px;margin:3px auto;font-size:12px}}
+@media (max-height:500px) and (orientation:landscape){h1{display:none}#hud{margin:2px auto;padding:4px}#gameWrap{width:min(94vw,calc((100dvh - 120px)*1.6))}#touchControls{margin:2px auto}#stickArea{width:78px;height:78px;flex-basis:78px}#stickKnob{left:19px;top:19px;width:40px;height:40px}#extraControls{margin:2px auto}#extraControls button{padding:6px 10px;font-size:11px}}
+
 @media (pointer:coarse),(max-width:700px){
  body{padding-bottom:12px}#touchControls{display:flex}#instructions{font-size:12px}
  #hud{font-size:12px;padding:8px;gap:6px}
@@ -39,6 +48,22 @@ button:focus-visible{outline:3px solid #f2d58c;outline-offset:3px}
  #touchActions{grid-template-columns:repeat(2,minmax(65px,1fr))}
  #touchActions button{font-size:11px;padding:11px 5px}
 }
+
+/* Polimento visual e configurações independentes por plataforma */
+:root{--touch-scale:1;--stick-scale:1}
+#settingsButton{background:#55452f}
+#touchActions button{min-height:48px;border-radius:9px;border:1px solid #d7bd7d;background:linear-gradient(180deg,#526071,#263342);box-shadow:0 3px 0 #111a24, inset 0 1px #ffffff35;font-weight:bold;letter-spacing:.3px}
+#touchActions button:active{transform:translateY(2px);box-shadow:0 1px 0 #111a24}
+#stickArea{transform:scale(var(--stick-scale));transform-origin:left bottom}
+#touchActions{transform:scale(var(--touch-scale));transform-origin:right bottom}
+.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;text-align:left}
+.settingsPanel{border:1px solid #8d7955;border-radius:9px;padding:12px;background:#111a25}
+.settingsPanel h3{margin:0 0 8px;color:#e8c77c;font-size:16px}
+.settingsPanel label{display:block;font:13px Arial;color:#e1e4e8;margin:9px 0}
+.settingsPanel input[type=range]{width:100%;accent-color:#d4b56d}
+.settingsPanel input[type=checkbox]{accent-color:#c5a35e}
+@media(max-width:650px){.settingsGrid{grid-template-columns:1fr}.screenCard{max-height:88dvh;overflow:auto;padding:17px 13px}}
+
 </style>
 </head>
 <body>
@@ -46,7 +71,7 @@ button:focus-visible{outline:3px solid #f2d58c;outline-offset:3px}
 <div id="hud">
 <span id="health">Vida: 100</span><span id="kills">Zumbis: 0/10</span>
 <span id="bossHud">Chefe: Não apareceu</span><span id="ally">Bjorn: Em perigo</span>
-<span id="potions">Poções: 3</span><span id="defense">Defesa: pronta</span><span id="difficultyHud">Dificuldade: Normal</span>
+<span id="potions">Poções: 3</span><span id="defense">Defesa: pronta</span><span id="abilityHud">Habilidade: pronta</span><span id="difficultyHud">Dificuldade: Normal</span>
 </div>
 <div id="gameWrap">
 <canvas id="game" width="960" height="600"></canvas>
@@ -62,16 +87,24 @@ button:focus-visible{outline:3px solid #f2d58c;outline-offset:3px}
 </div>
 </div>
 <div id="message">Uma história de perda, coragem e sobrevivência...</div>
-<p id="instructions">PC: WASD/SETAS mover, clique esquerdo atacar na direção do mouse, clique direito/SHIFT defender, Q poção, E interagir. Celular: analógico e botões na tela. ENTER: avançar diálogos.</p>
+<p id="instructions">PC: WASD/SETAS mover, clique/ESPAÇO atacar, F habilidade especial, clique direito/SHIFT defender, Q poção, E interagir, ESC pausar. Celular: analógico, ESPADA, HABILIDADE, DEFENDER, POÇÃO e USAR. Gire para horizontal. O jogo salva seu progresso automaticamente.</p>
 <div id="touchControls" aria-label="Controles de toque">
   <div id="stickArea"><div id="stickBase"><div id="stickKnob"></div></div></div>
   <div id="touchActions">
     <button id="touchAttack" type="button">ESPADA</button>
+    <button id="touchAbility" type="button">HABILIDADE</button>
     <button id="touchDefend" type="button">DEFENDER</button>
     <button id="touchPotion" type="button">POÇÃO</button>
     <button id="touchInteract" type="button">USAR</button>
   </div>
 </div>
+<div id="extraControls">
+ <button id="inventoryButton" type="button" onclick="showInventory()">INVENTÁRIO</button>
+ <button id="settingsButton" type="button" onclick="showPlatformSettings()">CONFIGURAÇÕES</button>
+ <button id="audioButton" type="button" onclick="toggleAudio()">ÁUDIO: LIGADO</button>
+ <button id="fullscreenButton" type="button" onclick="enterImmersiveMode()">TELA CHEIA / DEITAR</button>
+</div>
+<div id="orientationNotice"><div class="noticeCard"><div class="phone">↻</div><h2>VIRE O CELULAR</h2><p>THE LAST LIGHT foi feito para jogar na horizontal. Gire seu aparelho para uma experiência melhor.</p><button type="button" onclick="enterImmersiveMode()">TENTAR TELA CHEIA</button></div></div>
 <button id="pauseButton" type="button" onclick="togglePause()">Pausar</button>
 <script>
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
@@ -85,6 +118,114 @@ const difficultySettings={
  normal:{label:"Normal",hp:100,enemySpeed:1,enemyDamage:7,bossHp:500,bossSpeed:.72},
  hard:{label:"Difícil",hp:85,enemySpeed:1.22,enemyDamage:10,bossHp:680,bossSpeed:.9}
 };
+let audioEnabled=true,audioCtx=null,musicNodes=[],musicTimer=null,musicStep=0,lastSaveAt=0;
+let heldAttack=false,saveAvailable=false;
+let abilityCooldown=0,abilityFlash=0,abilityReady=true,shakeFrames=0;
+let platformSettings={
+ pc:{moveSpeed:1,aimGuide:true,screenShake:true},
+ mobile:{joystick:1,buttons:1,touchAim:true}
+};
+function loadPlatformSettings(){
+ try{const saved=JSON.parse(localStorage.getItem("lastLightPlatformSettings")||"null");if(saved){platformSettings.pc={...platformSettings.pc,...saved.pc};platformSettings.mobile={...platformSettings.mobile,...saved.mobile};}}catch(e){}
+ applyPlatformSettings();
+}
+function savePlatformSettings(){try{localStorage.setItem("lastLightPlatformSettings",JSON.stringify(platformSettings));}catch(e){}}
+function applyPlatformSettings(){
+ document.documentElement.style.setProperty("--stick-scale",String(platformSettings.mobile.joystick));
+ document.documentElement.style.setProperty("--touch-scale",String(platformSettings.mobile.buttons));
+}
+function showPlatformSettings(){
+ if(state==="playing")state="paused";
+ const mobile=matchMedia("(pointer:coarse)").matches;
+ const pc=platformSettings.pc,mb=platformSettings.mobile;
+ showScreen("CONFIGURAÇÕES POR PLATAFORMA",
+ `<div class="settingsGrid">
+ <section class="settingsPanel"><h3>COMPUTADOR</h3>
+ <label>Velocidade de movimento <input id="pcSpeed" type="range" min="0.7" max="1.5" step="0.05" value="${pc.moveSpeed}"></label>
+ <label><input id="pcAim" type="checkbox" ${pc.aimGuide?"checked":""}> Mostrar direção da mira</label>
+ <label><input id="pcShake" type="checkbox" ${pc.screenShake?"checked":""}> Efeito de impacto</label>
+ </section>
+ <section class="settingsPanel"><h3>CELULAR / TABLET</h3>
+ <label>Tamanho do analógico <input id="mobileStick" type="range" min="0.75" max="1.35" step="0.05" value="${mb.joystick}"></label>
+ <label>Tamanho dos botões <input id="mobileButtons" type="range" min="0.75" max="1.35" step="0.05" value="${mb.buttons}"></label>
+ <label><input id="mobileAim" type="checkbox" ${mb.touchAim?"checked":""}> Mirar automaticamente no inimigo próximo</label>
+ </section></div>`,
+ '<button onclick="applySettingsFromPanel()">APLICAR CONFIGURAÇÕES</button><button onclick="hideScreen();if(state===\'paused\')resumeGame()">FECHAR</button>');
+}
+function applySettingsFromPanel(){
+ const get=id=>document.getElementById(id);
+ if(get("pcSpeed"))platformSettings.pc.moveSpeed=Number(get("pcSpeed").value);
+ if(get("pcAim"))platformSettings.pc.aimGuide=get("pcAim").checked;
+ if(get("pcShake"))platformSettings.pc.screenShake=get("pcShake").checked;
+ if(get("mobileStick"))platformSettings.mobile.joystick=Number(get("mobileStick").value);
+ if(get("mobileButtons"))platformSettings.mobile.buttons=Number(get("mobileButtons").value);
+ if(get("mobileAim"))platformSettings.mobile.touchAim=get("mobileAim").checked;
+ applyPlatformSettings();savePlatformSettings();
+ showScreen("CONFIGURAÇÕES SALVAS","As configurações do computador e do celular foram guardadas separadamente.",
+ '<button onclick="showPlatformSettings()">VOLTAR</button><button onclick="hideScreen();if(state===\'paused\')resumeGame()">FECHAR</button>');
+}
+function initAudio(){
+ if(!audioEnabled)return;
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+ if(!audioCtx)audioCtx=new AC();if(audioCtx.state==="suspended")audioCtx.resume();
+ if(!musicNodes.length)startMusic();
+}
+function tone(freq=220,duration=.12,type="sine",volume=.035){
+ if(!audioEnabled)return;initAudio();if(!audioCtx)return;
+ const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime);
+ g.gain.setValueAtTime(volume,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);
+ o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration);
+}
+function swordWhoosh(){
+ if(!audioEnabled)return;initAudio();if(!audioCtx)return;
+ const now=audioCtx.currentTime;
+ // Ruído filtrado curto: um "vwosh" de lâmina passando pelo ar.
+ const length=Math.floor(audioCtx.sampleRate*.19),buffer=audioCtx.createBuffer(1,length,audioCtx.sampleRate),data=buffer.getChannelData(0);
+ for(let i=0;i<length;i++)data[i]=(Math.random()*2-1)*(1-i/length);
+ const noise=audioCtx.createBufferSource(),filter=audioCtx.createBiquadFilter(),gain=audioCtx.createGain();
+ noise.buffer=buffer;filter.type="bandpass";filter.frequency.setValueAtTime(1500,now);filter.frequency.exponentialRampToValueAtTime(420,now+.17);filter.Q.value=.7;
+ gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(.11*((matchMedia("(pointer:coarse)").matches?platformSettings.mobile.effects:platformSettings.pc.effects)/80),now+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+.19);
+ noise.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);noise.start(now);noise.stop(now+.2);
+}
+function zombieGroan(){
+ if(!audioEnabled)return;initAudio();if(!audioCtx)return;
+ const now=audioCtx.currentTime,o=audioCtx.createOscillator(),filter=audioCtx.createBiquadFilter(),g=audioCtx.createGain(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
+ o.type="sawtooth";o.frequency.setValueAtTime(118,now);o.frequency.exponentialRampToValueAtTime(48,now+.48);
+ filter.type="lowpass";filter.frequency.value=390;g.gain.setValueAtTime(.0001,now);g.gain.linearRampToValueAtTime(.075*((matchMedia("(pointer:coarse)").matches?platformSettings.mobile.effects:platformSettings.pc.effects)/80),now+.06);g.gain.exponentialRampToValueAtTime(.0001,now+.58);
+ lfo.frequency.value=7;lfo.connect(lg);lg.gain.value=8;lg.connect(o.frequency);o.connect(filter);filter.connect(g);g.connect(audioCtx.destination);
+ o.start(now);lfo.start(now);o.stop(now+.6);lfo.stop(now+.6);
+}
+function abilitySound(){
+ tone(95,.24,"sawtooth",.055);tone(190,.18,"triangle",.04);setTimeout(()=>tone(320,.12,"sine",.025),65);
+}
+function startMusic(){
+ if(!audioCtx||musicNodes.length)return;
+ const master=audioCtx.createGain();master.gain.value=.018;master.connect(audioCtx.destination);
+ const low=audioCtx.createOscillator(),pad=audioCtx.createOscillator(),filter=audioCtx.createBiquadFilter();
+ low.type="triangle";low.frequency.value=55;pad.type="sine";pad.frequency.value=82.4;filter.type="lowpass";filter.frequency.value=220;
+ low.connect(filter);pad.connect(filter);filter.connect(master);low.start();pad.start();musicNodes=[low,pad,master,filter];
+ musicTimer=setInterval(()=>{if(!audioCtx||!audioEnabled)return;const notes=[82.4,98,73.4,65.4];pad.frequency.setTargetAtTime(notes[musicStep++%notes.length],audioCtx.currentTime,.8);},2600);
+}
+function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null;}for(const n of musicNodes){try{if(n.stop)n.stop();}catch(e){}}musicNodes=[];}
+function toggleAudio(){audioEnabled=!audioEnabled;document.getElementById("audioButton").textContent=`ÁUDIO: ${audioEnabled?"LIGADO":"DESLIGADO"}`;if(audioEnabled){initAudio();tone(440,.08);}else stopMusic();}
+function enterImmersiveMode(){initAudio();const el=document.documentElement;if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});if(screen.orientation&&screen.orientation.lock)screen.orientation.lock("landscape").catch(()=>{});}
+function saveGame(){
+ if(!player||state==="menu"||state==="cinematic"||state==="gameover"||state==="finished"||state==="reunion")return;
+ try{const data={version:1,difficulty,state:"playing",player:{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,potions:player.potions},abilityCooldown,zombies,kills,boss,bjorn,crate,gameTime};localStorage.setItem("lastLightSave",JSON.stringify(data));saveAvailable=true;lastSaveAt=Date.now();}catch(e){}
+}
+function loadGame(){
+ try{const d=JSON.parse(localStorage.getItem("lastLightSave")||"null");if(!d||d.version!==1)return false;
+ difficulty=d.difficulty in difficultySettings?d.difficulty:"normal";const cfg=difficultySettings[difficulty];player={...d.player,speed:3.25,face:0,inv:0,defending:false,walk:0};
+ zombies=Array.isArray(d.zombies)?d.zombies:[];kills=Number(d.kills)||0;boss=d.boss||null;bjorn=d.bjorn||null;crate=d.crate||null;gameTime=Number(d.gameTime)||0;abilityCooldown=Number(d.abilityCooldown)||0;particles=[];state="playing";hideScreen();ui.message.textContent="Progresso recuperado. Boa sorte, Arthur.";updateHud();return true;
+ }catch(e){return false;}
+}
+function showInventory(){
+ if(state!=="playing"&&state!=="paused")return;
+ const previous=state;state="paused";
+ showScreen("INVENTÁRIO",`Poções disponíveis: ${player.potions}. Vida: ${player.hp}/${player.maxHp}. Zumbis derrotados: ${kills}/10. Dificuldade: ${difficultySettings[difficulty].label}.`,
+ `<button onclick="closeInventory('${previous}')">VOLTAR AO JOGO</button><button onclick="closeInventory('playing');usePotion();showInventory()">USAR POÇÃO</button><button onclick="saveGame();closeInventory('${previous}')">SALVAR</button>`);
+}
+function closeInventory(previous){state=previous;hideScreen();}
 const screen=document.getElementById("screen"),screenCard=document.getElementById("screenCard");
 function showScreen(title,body,buttons){
  screenCard.innerHTML=`<h2>${title}</h2><p>${body}</p><div class="screenButtons">${buttons}</div>`;
@@ -96,12 +237,12 @@ function showDifficulty(){
  '<button onclick="beginStory(\'easy\')">FÁCIL</button><button onclick="beginStory(\'normal\')">NORMAL</button><button onclick="beginStory(\'hard\')">DIFÍCIL</button><button onclick="showMainMenu()">VOLTAR</button>');
 }
 function showMainMenu(){
- state="menu";
+ state="menu";let hasSave=false;try{hasSave=!!localStorage.getItem("lastLightSave");}catch(e){}
  showScreen("THE LAST LIGHT","A Queda de Ragnar — encontre Bjorn, sobreviva à horda e descubra o destino de Jorgin.",
- '<button onclick="showDifficulty()">JOGAR</button><button onclick="showHelp()">COMO JOGAR</button>');
+ `${hasSave?'<button onclick="loadGame()">CONTINUAR</button>':''}<button onclick="showDifficulty()">JOGAR</button><button onclick="showHelp()">COMO JOGAR</button>`);
 }
 function showHelp(){
- showScreen("COMO JOGAR","PC: WASD ou setas para mover, clique esquerdo para atacar, clique direito ou SHIFT para defender, Q para poção, E para interagir e ESC para pausar. Celular: use o analógico e os botões na tela. Durante as cenas, pressione ENTER ou toque na tela para avançar.",
+ showScreen("COMO JOGAR","PC: WASD/setas movem, clique ou ESPAÇO ataca, clique direito/SHIFT defende, Q usa poção, F habilidade especial, E interage e ESC pausa. Celular: analógico e botões na tela. Para melhor experiência, gire o aparelho e use TELA CHEIA / DEITAR. O progresso é salvo automaticamente. Durante as cenas, pressione ENTER ou toque para avançar.",
  '<button onclick="showMainMenu()">VOLTAR</button>');
 }
 function togglePause(){
@@ -111,11 +252,11 @@ function togglePause(){
 }
 function resumeGame(){state="playing";hideScreen();}
 function beginStory(level){
- difficulty=level;restartGame();hideScreen();
+ initAudio();enterImmersiveMode();difficulty=level;restartGame();hideScreen();
 }
 const rand=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function restartGame(){
- state="cinematic";scene=0;sceneTimer=0;keys={};mouse={x:480,y:300,down:false,right:false};
+ state="cinematic";scene=0;sceneTimer=0;abilityCooldown=0;abilityFlash=0;shakeFrames=0;canvas.style.transform="";keys={};mouse={x:480,y:300,down:false,right:false};
  mobileMove={x:0,y:0,active:false};mobileAttack=false;swordSwing=0;dialogueFrame=0;
  zombies=[];boss=null;bjorn=null;crate=null;particles=[];kills=0;gameTime=0;endingPage=0;
  const cfg=difficultySettings[difficulty];
@@ -127,9 +268,10 @@ function updateHud(){
  ui.health.textContent=`Vida: ${player.hp}/${player.maxHp}`;
  ui.potions.textContent=`Poções: ${player.potions}`;
  ui.defense.textContent=player.defending?"Defesa: ativa":"Defesa: pronta";
+ ui.abilityHud=document.getElementById("abilityHud");if(ui.abilityHud)ui.abilityHud.textContent=abilityCooldown>0?`Habilidade: ${Math.ceil(abilityCooldown/60)}s`:"Habilidade: pronta";
  ui.difficulty.textContent=`Dificuldade: ${difficultySettings[difficulty].label}`;
  ui.kills.textContent=`Zumbis: ${kills}/10`;
- ui.boss.textContent=boss?(boss.hp>0?`Zumbi Alfa: ${boss.hp}/500`:"Chefe: Derrotado"):"Chefe: Não apareceu";
+ ui.boss.textContent=boss?(boss.hp>0?`Zumbi Alfa: ${Math.ceil(boss.hp)}/${boss.maxHp}`:"Chefe: Derrotado"):"Chefe: Não apareceu";
  ui.ally.textContent=bjorn?.rescued?"Bjorn: Salvo":"Bjorn: Em perigo";
 }
 function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h)}
@@ -181,10 +323,16 @@ function drawPerson(x,y,kind="arthur",scale=1){
   rect(-7,-19,3,3,"#242424");rect(4,-19,3,3,"#242424");rect(-5,-11,10,3,"#71433b");
   rect(-12,-6,24,5,"#b9a16b");rect(-4,-5,8,9,"#554333");
   rect(-12,18,9,9,"#202832");rect(3,18,9,9,"#202832");
-  // ombreiras e espada
+  // ombreiras de aço, rebites e detalhes do brasão
   rect(-17,-8,8,8,"#b5c2ca");rect(9,-8,8,8,"#b5c2ca");
-  ctx.strokeStyle="#dce8ef";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(15,-2);ctx.lineTo(31,15);ctx.stroke();
-  ctx.strokeStyle="#8c7047";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(13,-4);ctx.lineTo(19,2);ctx.stroke();
+  rect(-12,-3,24,2,"#d9c28b");rect(-3,-1,6,8,"#9b7848");
+  rect(-9,-25,18,2,"#e4cba1");rect(-15,0,4,11,"#71879a");rect(11,0,4,11,"#71879a");
+ }
+ // detalhes adicionais do rosto, cota de malha e couro
+ if(kind==="arthur"){
+  rect(-8,-2,16,2,"#d0b77b");rect(-6,1,12,3,"#405a70");
+  for(let i=0;i<3;i++){ctx.fillStyle="#d6dce0";ctx.fillRect(-9+i*7,5,2,2);}
+  rect(-4,-24,8,2,"#f0c69e");
  }
  // brilho de recorte
  ctx.globalAlpha=.22;ctx.fillStyle="#fff";ctx.fillRect(-10,-25,3,13);ctx.globalAlpha=1;
@@ -217,38 +365,37 @@ function drawCinematic(){
  }
 }
 function drawSword(){
-  if(!player)return;
-  ctx.save();
-  ctx.translate(player.x,player.y-3);
-  ctx.rotate(player.face+(swordSwing>0?(-0.75*(swordSwing/12)):0));
-  // Cabo e pomo
-  rect(7,-3,13,6,"#68452c");
-  rect(5,-4,4,8,"#c6a35e");
-  // Guarda
-  rect(18,-10,5,20,"#b99a5b");
-  rect(20,-8,3,16,"#e0c77e");
-  // Lâmina apontada exatamente para o cursor
-  ctx.fillStyle="#dce8ef";
-  ctx.beginPath();
-  ctx.moveTo(22,-5);
-  ctx.lineTo(59,-3);
-  ctx.lineTo(69,0);
-  ctx.lineTo(59,3);
-  ctx.lineTo(22,5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle="#718391";
-  ctx.lineWidth=1.5;
-  ctx.stroke();
-  ctx.strokeStyle="#ffffff";
-  ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(25,-3);ctx.lineTo(59,-1);ctx.stroke();
-  if(attackFlash>0){
-    ctx.strokeStyle="rgba(255,238,170,.9)";
-    ctx.lineWidth=4;
-    ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(70,0);ctx.stroke();
-  }
-  ctx.restore();
+ if(!player)return;
+ ctx.save();
+ ctx.translate(player.x,player.y-5);
+ const swing=swordSwing>0?(1-swordSwing/12):0;
+ ctx.rotate(player.face+(swing?(-.92*Math.sin(swing*Math.PI)):0));
+ // brilho e rastro da lâmina durante o golpe
+ if(swordSwing>0){
+  ctx.save();ctx.globalAlpha=.18+(swordSwing/12)*.22;
+  ctx.strokeStyle="#d8efff";ctx.lineWidth=17;ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(5,0,76,-.92,.92);ctx.stroke();
+  ctx.globalAlpha=.8;ctx.strokeStyle="#f8e8b5";ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(5,0,76,-.82,.82);ctx.stroke();ctx.restore();
+ }
+ // braço/luva segurando o punho
+ ctx.fillStyle="#9a7659";ctx.beginPath();ctx.ellipse(9,5,8,6,.25,0,Math.PI*2);ctx.fill();
+ // pomo e empunhadura revestida em couro
+ ctx.fillStyle="#d5b56d";ctx.beginPath();ctx.arc(16,3,5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle="#563a29";ctx.fillRect(17,-1,25,8);
+ ctx.strokeStyle="#b18b53";ctx.lineWidth=2;
+ for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(20+i*5,-1);ctx.lineTo(24+i*5,7);ctx.stroke();}
+ // guarda trabalhada
+ ctx.fillStyle="#b99556";ctx.beginPath();ctx.moveTo(39,-13);ctx.quadraticCurveTo(43,-8,43,3);ctx.quadraticCurveTo(42,10,38,13);ctx.lineTo(35,9);ctx.quadraticCurveTo(39,0,35,-9);ctx.closePath();ctx.fill();
+ ctx.strokeStyle="#f1d99b";ctx.lineWidth=1.5;ctx.stroke();
+ // lâmina longa, larga e afiada com canal central
+ const blade=ctx.createLinearGradient(42,-8,42,9);blade.addColorStop(0,"#f7fbff");blade.addColorStop(.42,"#aebdca");blade.addColorStop(.7,"#e5edf2");blade.addColorStop(1,"#738493");
+ ctx.fillStyle=blade;ctx.beginPath();ctx.moveTo(41,-7);ctx.lineTo(101,-4);ctx.lineTo(119,0);ctx.lineTo(101,4);ctx.lineTo(41,7);ctx.closePath();ctx.fill();
+ ctx.strokeStyle="#e9f3fa";ctx.lineWidth=1.5;ctx.stroke();
+ ctx.strokeStyle="#718596";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(46,0);ctx.lineTo(108,0);ctx.stroke();
+ // rebites e ponta polida
+ ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(116,0,1.8,0,Math.PI*2);ctx.fill();
+ ctx.restore();
 }
 function drawCity(apocalypse=false){
  // chão em camadas, blocos e caminhos
@@ -273,6 +420,9 @@ function drawCity(apocalypse=false){
   rect(x+3,y+103,79,5,"#292c2d");
   if(apocalypse){rect(x+6,y+48,13,3,"#8f3934");rect(x+63,y+58,17,4,"#8f3934");}
  }
+ // pedras individuais da avenida e pequenas marcas de desgaste
+ for(let x=12;x<W;x+=42){ctx.strokeStyle="rgba(20,22,22,.20)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,260);ctx.lineTo(x+12,288);ctx.lineTo(x+4,318);ctx.stroke();}
+ for(let i=0;i<10;i++){const x=(i*113+37)%W,y=(i*71+388)%H;ctx.fillStyle="rgba(10,13,14,.24)";ctx.beginPath();ctx.ellipse(x,y,7+(i%3)*3,3,0,0,Math.PI*2);ctx.fill();}
  // postes, árvores e destroços decorativos
  for(let i=0;i<6;i++){
   const x=75+i*155;rect(x,375,7,70,"#493c30");rect(x-18,370,43,7,"#292b2b");
@@ -281,9 +431,11 @@ function drawCity(apocalypse=false){
  }
  if(apocalypse){
   // manchas, rachaduras e fumaça da cidade destruída
-  for(let i=0;i<18;i++){let x=(i*173+43)%W,y=(i*97+25)%H;rect(x,y,rand(7,18),rand(3,7),i%2?"#783b35":"#262727");}
+  for(let i=0;i<18;i++){let x=(i*173+43)%W,y=(i*97+25)%H;rect(x,y,7+(i%4)*3,3+(i%3)*2,i%2?"#783b35":"#262727");}
   for(let i=0;i<5;i++){let x=70+i*205;ctx.fillStyle="rgba(18,20,22,.22)";ctx.beginPath();ctx.arc(x,80,35,0,Math.PI*2);ctx.fill();}
  }
+ // lanternas com halo quente para dar contraste à cidade
+ for(let i=0;i<5;i++){const x=90+i*195,y=185+(i%2)*190;const glow=ctx.createRadialGradient(x,y,2,x,y,42);glow.addColorStop(0,"rgba(239,174,91,.22)");glow.addColorStop(1,"rgba(239,174,91,0)");ctx.fillStyle=glow;ctx.fillRect(x-42,y-42,84,84);rect(x-2,y-9,4,12,"#a78a58");}
  // vinheta para dar profundidade
  const v=ctx.createRadialGradient(480,290,150,480,290,620);v.addColorStop(0,"rgba(0,0,0,0)");v.addColorStop(1,"rgba(0,0,0,.38)");ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
 }
@@ -293,14 +445,14 @@ function spawnZombies(n){
 }
 function startGame(){
  state="playing";player.x=480;player.y=310;bjorn={x:770,y:310,rescued:false,hp:100};
- spawnZombies(6);ui.message.textContent=`Ajude Bjorn! Derrote 10 zumbis para abrir caminho. Dificuldade: ${difficultySettings[difficulty].label}.`;
+ spawnZombies(6);ui.message.textContent=`Ajude Bjorn! Derrote 10 zumbis para abrir caminho. Dificuldade: ${difficultySettings[difficulty].label}.`;saveGame();
 }
 function attack(){
  if(state!=="playing"||attackCooldown>0)return;
- attackCooldown=18;attackFlash=12;swordSwing=12;
+ attackCooldown=18;attackFlash=12;swordSwing=12;swordWhoosh();
  let angle=Math.atan2(mouse.y-player.y,mouse.x-player.x);
  const touchMode=matchMedia("(pointer:coarse)").matches;
- if(touchMode){
+ if(touchMode && platformSettings.mobile.touchAim){
   const nearby=[...zombies.filter(z=>z.hp>0),...(boss&&boss.hp>0?[boss]:[])].filter(e=>dist(player,e)<115).sort((a,b)=>dist(player,a)-dist(player,b));
   if(nearby.length)angle=Math.atan2(nearby[0].y-player.y,nearby[0].x-player.x);
  }
@@ -314,11 +466,27 @@ function attack(){
  }
  if(target){target.hp-=target===boss?45:40;target.flash=7;burst(target.x,target.y,target===boss?"#bd67ff":"#d6c77a");}
 }
+function specialAbility(){
+ if(state!=="playing"||abilityCooldown>0)return;
+ abilityCooldown=360;abilityFlash=26;abilityReady=false;abilitySound();
+ const forward=player.face,range=142,arc=1.25;
+ let hits=0;
+ const targets=[...zombies.filter(z=>z.hp>0),...(boss&&boss.hp>0?[boss]:[])];
+ for(const enemy of targets){
+  const d=dist(player,enemy),a=Math.atan2(enemy.y-player.y,enemy.x-player.x);
+  const diff=Math.atan2(Math.sin(a-forward),Math.cos(a-forward));
+  if(d<range&&Math.abs(diff)<arc){enemy.hp-=enemy===boss?95:85;enemy.flash=12;burst(enemy.x,enemy.y,"#e9d18b");hits++;}
+ }
+ for(let i=0;i<28;i++){const a=forward+rand(-1.1,1.1),r=rand(35,125);particles.push({x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,dx:Math.cos(a)*rand(1,3),dy:Math.sin(a)*rand(1,3),life:24,color:"#f3d88d"});}
+ ui.message.textContent=hits?`Golpe especial! ${hits} inimigo(s) atingido(s).`:"Golpe especial! A lâmina cortou o ar.";
+ updateHud();
+}
+
 function usePotion(){
  if(state!=="playing"||player.potions<=0||player.hp>=player.maxHp)return;
- player.potions--;player.hp=Math.min(player.maxHp,player.hp+38);
+ player.potions--;player.hp=Math.min(player.maxHp,player.hp+38);tone(520,.18,"sine",.04);tone(760,.22,"sine",.025);
  burst(player.x,player.y,"#64e39a");ui.message.textContent="Arthur usou uma poção e recuperou vida!";
- updateHud();
+ updateHud();saveGame();
 }
 function burst(x,y,color){for(let i=0;i<18;i++)particles.push({x,y,dx:rand(-3.8,3.8),dy:rand(-3.8,3.8),life:30,color});}
 function update(){
@@ -329,29 +497,31 @@ function update(){
  if(dx&&dy){const magnitude=Math.hypot(dx,dy);if(magnitude>1){dx/=magnitude;dy/=magnitude;}}
  player.defending=!!(keys.shift||mouse.right||keys.touchdefend);
  if(player.defending){dx*=.45;dy*=.45;}
- player.x=Math.max(18,Math.min(W-18,player.x+dx*player.speed));
- player.y=Math.max(35,Math.min(H-18,player.y+dy*player.speed));
+ const movementScale=matchMedia("(pointer:coarse)").matches?1:platformSettings.pc.moveSpeed;
+ player.x=Math.max(18,Math.min(W-18,player.x+dx*player.speed*movementScale));
+ player.y=Math.max(35,Math.min(H-18,player.y+dy*player.speed*movementScale));
  if(!matchMedia("(pointer:coarse)").matches){player.face=Math.atan2(mouse.y-player.y,mouse.x-player.x);}
  player.walk=(dx||dy)?player.walk+.22:0;
- if(attackCooldown>0)attackCooldown--;if(attackFlash>0)attackFlash--;if(swordSwing>0)swordSwing--;if(player.inv>0)player.inv--;
+ if(attackCooldown>0)attackCooldown--;if(abilityCooldown>0)abilityCooldown--;if(abilityFlash>0)abilityFlash--;if((heldAttack||mouse.down)&&attackCooldown<=0)attack();if(attackFlash>0)attackFlash--;if(swordSwing>0)swordSwing--;if(player.inv>0)player.inv--;
  for(const z of zombies){if(z.hp<=0)continue;let d=dist(player,z);if(d>29){z.x+=(player.x-z.x)/d*z.speed;z.y+=(player.y-z.y)/d*z.speed;}else if(z.cool<=0){hurt(difficultySettings[difficulty].enemyDamage);z.cool=55;}if(z.cool>0)z.cool--;if(z.flash>0)z.flash--;}
  let dead=zombies.filter(z=>z.hp<=0).length;
- if(dead>0){kills+=dead;zombies=zombies.filter(z=>z.hp>0);if(kills<10&&zombies.length<5)spawnZombies(Math.min(3,10-kills));}
- if(kills>=10&&!boss){const cfg=difficultySettings[difficulty];boss={x:800,y:300,hp:cfg.bossHp,maxHp:cfg.bossHp,speed:cfg.bossSpeed,cool:0,flash:0};ui.message.textContent='ZUMBI ALFA: a criatura que lidera a horda bloqueia o caminho!';burst(boss.x,boss.y,"#a34cff");}
- if(boss&&boss.hp>0){let d=dist(player,boss);if(d>48){boss.x+=(player.x-boss.x)/d*boss.speed;boss.y+=(player.y-boss.y)/d*boss.speed;}else if(boss.cool<=0){hurt(Math.round(difficultySettings[difficulty].enemyDamage*2.2));boss.cool=65;}if(boss.cool>0)boss.cool--;if(boss.flash>0)boss.flash--;}
- if(boss&&boss.hp<=0&&!crate){crate={x:boss.x,y:boss.y-8,opened:false};burst(crate.x,crate.y,"#e4c77a");ui.message.textContent="O Zumbi Alfa caiu! Uma caixa está presa à sua armadura. Aproxime-se e pressione E.";}
+ if(dead>0){for(let i=0;i<dead;i++)zombieGroan();kills+=dead;zombies=zombies.filter(z=>z.hp>0);if(kills<10&&zombies.length<5)spawnZombies(Math.min(3,10-kills));}
+ if(kills>=10&&!boss){const cfg=difficultySettings[difficulty];boss={x:800,y:300,hp:cfg.bossHp,maxHp:cfg.bossHp,speed:cfg.bossSpeed,cool:0,flash:0};ui.message.textContent='ZUMBI ALFA: a criatura que lidera a horda bloqueia o caminho!';tone(68,.8,"sawtooth",.05);burst(boss.x,boss.y,"#a34cff");}
+ if(boss&&boss.hp>0){let d=dist(player,boss);if(d>48){const rage=boss.hp<boss.maxHp*.5?1.35:1;boss.x+=(player.x-boss.x)/d*boss.speed*rage;boss.y+=(player.y-boss.y)/d*boss.speed*rage;}else if(boss.cool<=0){hurt(Math.round(difficultySettings[difficulty].enemyDamage*2.2));boss.cool=65;}if(boss.cool>0)boss.cool--;if(boss.flash>0)boss.flash--;}
+ if(boss&&boss.hp<=0&&!crate){tone(110,.45,"triangle",.06);crate={x:boss.x,y:boss.y-8,opened:false};burst(crate.x,crate.y,"#e4c77a");ui.message.textContent="O Zumbi Alfa caiu! Uma caixa está presa à sua armadura. Aproxime-se e pressione E.";}
  for(const p of particles){p.x+=p.dx;p.y+=p.dy;p.life--;}particles=particles.filter(p=>p.life>0);
  if(player.hp<=0){state="gameover";ui.message.textContent="Arthur caiu. A cidade ainda precisa de você.";showScreen("VOCÊ FOI DERROTADO","A horda venceu desta vez. Ajuste sua estratégia e tente novamente.",
  '<button onclick="restartGame()">TENTAR NOVAMENTE</button><button onclick="showMainMenu()">MENU PRINCIPAL</button>');}
- updateHud();
+ updateHud();if(Date.now()-lastSaveAt>5000)saveGame();
 }
-function hurt(n){if(player.inv>0)return;if(player.defending)n=Math.max(1,Math.round(n*.22));player.hp=Math.max(0,player.hp-n);player.inv=35;burst(player.x,player.y,"#e65d55");}
+function hurt(n){if(player.inv>0)return;tone(95,.16,"square",.035);if(platformSettings.pc.screenShake)shakeFrames=8;if(player.defending)n=Math.max(1,Math.round(n*.22));player.hp=Math.max(0,player.hp-n);player.inv=35;burst(player.x,player.y,"#e65d55");}
 function interact(){
  if(state!=="playing")return;
  if(bjorn&&!bjorn.rescued&&dist(player,bjorn)<65){bjorn.rescued=true;ui.message.textContent="Bjorn: Obrigado, Arthur! Ragnar levou um prisioneiro numa caixa... talvez seja seu irmão!";updateHud();}
  if(crate&&!crate.opened&&dist(player,crate)<90){crate.opened=true;state="reunion";endingPage=0;ui.message.textContent="Arthur encontrou Jorgin!";}
 }
 function drawGame(){
+ if(shakeFrames>0){canvas.style.transform=`translate(${rand(-2.5,2.5)}px,${rand(-1.8,1.8)}px)`;shakeFrames--;}else canvas.style.transform="";
  drawCity(true);
  // obstáculos / destroços
  for(let i=0;i<8;i++){let x=70+i*115;rect(x,205,35,15,"#282c2e");}
@@ -365,8 +535,9 @@ function drawGame(){
  drawPerson(player.x,player.y,"arthur",1.1);
  drawSword();
  // indicador da direção do mouse
- ctx.save();ctx.strokeStyle="rgba(245,224,160,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(player.x+Math.cos(player.face)*62,player.y+Math.sin(player.face)*62);ctx.stroke();ctx.restore();
+ if(!matchMedia("(pointer:coarse)").matches&&platformSettings.pc.aimGuide){ctx.save();ctx.strokeStyle="rgba(245,224,160,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(player.x+Math.cos(player.face)*62,player.y+Math.sin(player.face)*62);ctx.stroke();ctx.restore();}
  if(player.defending){ctx.save();ctx.strokeStyle="#8ed9ef";ctx.shadowColor="#70c9ed";ctx.shadowBlur=15;ctx.lineWidth=5;ctx.beginPath();ctx.arc(player.x,player.y,31,player.face-.95,player.face+.95);ctx.stroke();ctx.restore();}
+ if(abilityFlash>0){ctx.save();ctx.globalAlpha=abilityFlash/26;ctx.strokeStyle="#f6d889";ctx.shadowColor="#f2bd57";ctx.shadowBlur=25;ctx.lineWidth=11;ctx.beginPath();ctx.arc(player.x,player.y,42+(26-abilityFlash)*3,0,Math.PI*2);ctx.stroke();ctx.restore();}
  if(attackFlash){ctx.save();ctx.strokeStyle="#f4e4ad";ctx.shadowColor="#b8d8ed";ctx.shadowBlur=16;ctx.lineWidth=7;ctx.beginPath();ctx.arc(player.x,player.y,48,player.face-.9,player.face+.9);ctx.stroke();ctx.restore();}
  for(const p of particles){ctx.globalAlpha=p.life/25;rect(p.x,p.y,5,5,p.color);}ctx.globalAlpha=1;
  if(boss&&boss.hp>0){rect(300,15,360,12,"#171717");rect(300,15,360*boss.hp/boss.maxHp,12,"#b02b52");}
@@ -396,10 +567,13 @@ canvas.addEventListener("pointerdown",e=>{
  if((state==="cinematic"||state==="reunion")&&!screen.classList.contains("visible")){advanceScene();}
 });
 window.addEventListener("keydown",e=>{
+ if(state==="menu"||state==="cinematic")initAudio();
  const k=e.key.toLowerCase();if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();keys[k]=true;
  if(state==="cinematic"&&k==="enter"){advanceScene();}
  else if(k==="escape"){togglePause();}
  else if(state==="playing"&&k==="q"){usePotion();}
+ else if(state==="playing"&&k===" "){attack();}
+ else if(state==="playing"&&k==="f"){specialAbility();}
  else if(state==="playing"&&k==="e"){interact();}
  else if(state==="reunion"&&k==="enter"){advanceScene();}
 });
@@ -412,13 +586,13 @@ function updateMouse(e){
   player.face=Math.atan2(mouse.y-player.y,mouse.x-player.x);
  }
 }
-canvas.addEventListener("mousemove",updateMouse);
-canvas.addEventListener("mousedown",e=>{
- updateMouse(e);
- if(e.button===0){mouse.down=true;attack();}
+canvas.addEventListener("pointermove",updateMouse);
+canvas.addEventListener("pointerdown",e=>{
+ if(e.pointerType==="mouse")updateMouse(e);
+ if(e.button===0){mouse.down=true;if(e.pointerType==="mouse")attack();}
  if(e.button===2){mouse.right=true;e.preventDefault();}
 });
-window.addEventListener("mouseup",e=>{if(e.button===0)mouse.down=false;if(e.button===2)mouse.right=false;});
+window.addEventListener("pointerup",e=>{if(e.button===0)mouse.down=false;if(e.button===2)mouse.right=false;});
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 function drawFinished(){rect(0,0,W,H,"#10151d");text("THE LAST LIGHT",480,245,48,"#e8c77c");text("A JORNADA DE ARTHUR CONTINUA...",480,305,22);text("Recomece para jogar novamente.",480,355,17);}
@@ -438,12 +612,109 @@ stickArea.addEventListener("pointerdown",e=>{stickPointer=e.pointerId;stickArea.
 stickArea.addEventListener("pointermove",e=>{if(e.pointerId===stickPointer)setStick(e);});
 function releaseStick(){stickPointer=null;mobileMove={x:0,y:0,active:false};stickKnob.style.transform="translate(0,0)";}
 stickArea.addEventListener("pointerup",releaseStick);stickArea.addEventListener("pointercancel",releaseStick);
-document.getElementById("touchAttack").addEventListener("pointerdown",e=>{e.preventDefault();attack();});
+const touchAttackButton=document.getElementById("touchAttack");
+touchAttackButton.addEventListener("pointerdown",e=>{e.preventDefault();initAudio();heldAttack=true;attack();touchAttackButton.setPointerCapture?.(e.pointerId);});
+["pointerup","pointercancel","lostpointercapture"].forEach(ev=>touchAttackButton.addEventListener(ev,()=>heldAttack=false));
 document.getElementById("touchDefend").addEventListener("pointerdown",e=>{e.preventDefault();keys.touchdefend=true;});
 ["pointerup","pointercancel","pointerleave"].forEach(ev=>document.getElementById("touchDefend").addEventListener(ev,()=>keys.touchdefend=false));
-document.getElementById("touchPotion").addEventListener("click",usePotion);
-document.getElementById("touchInteract").addEventListener("click",interact);
-showMainMenu();loop();
+const potionButton=document.getElementById("touchPotion"),interactButton=document.getElementById("touchInteract"),abilityButton=document.getElementById("touchAbility");
+function bindTap(button,action){button.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();initAudio();action();});button.addEventListener("click",e=>{e.preventDefault();});}
+bindTap(potionButton,usePotion);bindTap(interactButton,interact);bindTap(abilityButton,specialAbility);
+for(const b of document.querySelectorAll("#touchControls button")){b.addEventListener("contextmenu",e=>e.preventDefault());}
+window.addEventListener("blur",()=>{heldAttack=false;mouse.down=false;keys.touchdefend=false;releaseStick();});
+loadPlatformSettings();showMainMenu();loop();
+</script>
+
+<script>
+/* THE LAST LIGHT — Edição Definitiva: sistemas adicionais compatíveis com a base original */
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const base={pc:{moveSpeed:1,aimGuide:true,screenShake:true,dodgeKey:'Control',music:65,effects:80},mobile:{joystick:1,buttons:1,touchAim:true,music:65,effects:80,layout:'classic'}};
+ platformSettings.pc={...base.pc,...platformSettings.pc};
+ platformSettings.mobile={...base.mobile,...platformSettings.mobile};
+ let deviceTab='pc',xp=0,level=1,skillPoints=0,strength=0,vitality=0,agility=0,combo=0,comboTimer=0,dodgeCooldown=0,dodgeFrames=0,dodgeX=0,dodgeY=0,hitStop=0,lastCountedKills=0,bossPhase=0,bossAttackTimer=0,questText='Encontre Bjorn e sobreviva à horda.',zoneName='Valedouro',lastBossHp=0;
+ let particlesExtra=[];
+ const originalSave=saveGame,originalLoad=loadGame,originalRestart=restartGame,originalUpdate=update,originalDrawGame=drawGame,originalHud=updateHud,originalAttack=attack,originalSpawn=spawnZombies,originalShowSettings=showPlatformSettings,originalTone=tone,originalDrawPerson=drawPerson,originalStartMusic=startMusic;
+ // HUD de progressão
+ const xpHud=document.createElement('span');xpHud.id='xpHud';xpHud.textContent='Nv. 1 · XP 0/100';$('hud').appendChild(xpHud);
+ const questHud=document.createElement('span');questHud.id='questHud';questHud.textContent='Missão: encontre Bjorn';$('hud').appendChild(questHud);
+ const dodgeButton=document.createElement('button');dodgeButton.id='touchDodge';dodgeButton.type='button';dodgeButton.textContent='ESQUIVA';$('touchActions').appendChild(dodgeButton);
+ const settingsStyle=document.createElement('style');settingsStyle.textContent=`
+ #touchDodge{background:linear-gradient(180deg,#705a79,#382d47)!important}
+ .platformTabs{display:flex;gap:8px;margin:0 0 12px}.platformTabs button{flex:1;margin:0;border-radius:7px}
+ .platformTabs button.active{background:#b18a48;color:#17130d;box-shadow:inset 0 0 0 2px #f0d99c}
+ .settingsPanel{min-width:0}.settingsPanel input[type=range]{accent-color:#d4b56d}
+ .statLine{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #ffffff18;font:14px Arial}
+ .statLine button{padding:5px 10px;margin:0}.upgradeNote{font:12px Arial;color:#c7d0d8}
+ @media(max-width:650px){#hud{justify-content:center}#xpHud,#questHud{flex-basis:100%}#touchActions{grid-template-columns:repeat(3,minmax(58px,1fr))}}
+ `;document.head.appendChild(settingsStyle);
+ function syncPlatform(){document.documentElement.style.setProperty('--stick-scale',String(platformSettings.mobile.joystick));document.documentElement.style.setProperty('--touch-scale',String(platformSettings.mobile.buttons));}
+ function applyAudioVolumes(){if(!audioCtx)return;const pc=matchMedia('(pointer:coarse)').matches?platformSettings.mobile:platformSettings.pc;if(musicNodes[2]&&musicNodes[2].gain)musicNodes[2].gain.setTargetAtTime((pc.music/100)*.028,audioCtx.currentTime,.08);}
+ tone=function(freq,duration,type,volume){const p=matchMedia('(pointer:coarse)').matches?platformSettings.mobile:platformSettings.pc;originalTone(freq,duration,type,(volume===undefined ? .035 : volume)*(p.effects/80));};
+ startMusic=function(){originalStartMusic();applyAudioVolumes();};
+ function showSettingsTab(tab){deviceTab=tab;const pc=platformSettings.pc,mb=platformSettings.mobile;const isPC=tab==='pc';const p=isPC?pc:mb;
+  const body=`<div class="platformTabs"><button class="${isPC?'active':''}" onclick="showSettingsTab('pc')">🖥 COMPUTADOR</button><button class="${!isPC?'active':''}" onclick="showSettingsTab('mobile')">📱 CELULAR</button></div>
+  <section class="settingsPanel"><h3>${isPC?'CONFIGURAÇÃO DO PC':'CONFIGURAÇÃO DO CELULAR'}</h3>
+  ${isPC?`<label>Velocidade do Arthur <input id="cfgMove" type="range" min="0.7" max="1.5" step="0.05" value="${p.moveSpeed}"></label><label><input id="cfgAim" type="checkbox" ${p.aimGuide?'checked':''}> Mostrar guia de mira</label><label><input id="cfgShake" type="checkbox" ${p.screenShake?'checked':''}> Vibração visual da câmera</label><label>Tecla de esquiva: <b>CTRL</b> (fixa)</label>`:`<label>Tamanho do analógico <input id="cfgStick" type="range" min="0.75" max="1.4" step="0.05" value="${p.joystick}"></label><label>Tamanho dos botões <input id="cfgButtons" type="range" min="0.75" max="1.4" step="0.05" value="${p.buttons}"></label><label><input id="cfgTouchAim" type="checkbox" ${p.touchAim?'checked':''}> Mirar automaticamente no inimigo próximo</label><label>Controles: analógico + ESPADA, HABILIDADE, DEFENDER, POÇÃO, USAR e ESQUIVA</label>`}
+  <label>Volume da música <input id="cfgMusic" type="range" min="0" max="100" step="5" value="${p.music}"></label><label>Volume dos efeitos <input id="cfgEffects" type="range" min="0" max="100" step="5" value="${p.effects}"></label></section>
+  <p class="upgradeNote">As opções do computador e do celular são salvas separadamente neste aparelho.</p>`;
+  showScreen('CONFIGURAÇÕES — '+(isPC?'PC':'CELULAR'),body,`<button onclick="saveSettingsTab('${tab}')">SALVAR ${isPC?'PC':'CELULAR'}</button><button onclick="showSettingsTab('${isPC?'mobile':'pc'}')">${isPC?'CONFIGURAR CELULAR':'CONFIGURAR PC'}</button><button onclick="hideScreen();if(state==='paused')resumeGame()">FECHAR</button>`);
+ }
+ window.showSettingsTab=showSettingsTab;
+ window.saveSettingsTab=function(tab){const p=platformSettings[tab],v=id=>$(id);if(tab==='pc'){if(v('cfgMove'))p.moveSpeed=+v('cfgMove').value;if(v('cfgAim'))p.aimGuide=v('cfgAim').checked;if(v('cfgShake'))p.screenShake=v('cfgShake').checked;}else{if(v('cfgStick'))p.joystick=+v('cfgStick').value;if(v('cfgButtons'))p.buttons=+v('cfgButtons').value;if(v('cfgTouchAim'))p.touchAim=v('cfgTouchAim').checked;}if(v('cfgMusic'))p.music=+v('cfgMusic').value;if(v('cfgEffects'))p.effects=+v('cfgEffects').value;savePlatformSettings();syncPlatform();applyAudioVolumes();showSettingsTab(tab);};
+ showPlatformSettings=function(){if(state==='playing')state='paused';showSettingsTab('pc');};
+ // RPG progression
+ function xpNeeded(){return 100+(level-1)*65;}
+ function grantXP(amount){xp+=amount;let gained=0;while(xp>=xpNeeded()){xp-=xpNeeded();level++;skillPoints++;gained++;if(player){player.maxHp+=8+vitality*2;player.hp=Math.min(player.maxHp,player.hp+20);}}if(gained){tone(660,.16,'triangle',.04);setMessage(`NÍVEL ${level}! Você recebeu ${gained} ponto(s) de atributo.`);}updateHud();}
+ function setMessage(s){if(ui.message)ui.message.textContent=s;}
+ function showCharacter(){if(!player)return;state='paused';const stats=`<p>Nível ${level} · XP ${xp}/${xpNeeded()} · Pontos disponíveis: ${skillPoints}</p><p>Força: ${strength} (dano adicional) · Vitalidade: ${vitality} (vida máxima) · Agilidade: ${agility} (esquiva)</p><div class="statLine"><span>Força</span><button onclick="upgradeStat('strength')">+1</button></div><div class="statLine"><span>Vitalidade</span><button onclick="upgradeStat('vitality')">+1</button></div><div class="statLine"><span>Agilidade</span><button onclick="upgradeStat('agility')">+1</button></div><p class="upgradeNote">Força aumenta o dano. Vitalidade aumenta a vida máxima. Agilidade reduz a recarga da esquiva. Armas melhores são liberadas nos níveis 3 e 5.</p>`;showScreen('PERSONAGEM / ATRIBUTOS',stats,'<button onclick="showCharacter()">ATUALIZAR</button><button onclick="hideScreen();resumeGame()">VOLTAR</button>');}
+ window.showCharacter=showCharacter;
+ window.upgradeStat=function(stat){if(skillPoints<=0||!['strength','vitality','agility'].includes(stat))return;skillPoints--;if(stat==='strength')strength++;if(stat==='vitality'){vitality++;player.maxHp+=12;player.hp=Math.min(player.maxHp,player.hp+12);}if(stat==='agility')agility++;showCharacter();};
+ const oldInventory=showInventory;showInventory=function(){if(state!=='playing'&&state!=='paused')return;state='paused';showScreen('INVENTÁRIO',`Poções: ${player.potions} · Vida: ${player.hp}/${player.maxHp}<br>XP: ${xp}/${xpNeeded()} · Nível: ${level}<br>Arma: ${level>=5?'Espada de Ragnar':level>=3?'Lâmina de Prata':'Espada de Valedouro'}<br>Missão: ${questText}`,'<button onclick="showCharacter()">ATRIBUTOS</button><button onclick="hideScreen();resumeGame()">VOLTAR</button><button onclick="saveGame();hideScreen();resumeGame()">SALVAR</button>');};
+ // Saves retrocompatíveis com versões anteriores
+ saveGame=function(){if(!player||['menu','cinematic','gameover','finished','reunion'].includes(state))return;try{const data={version:2,difficulty,state:'playing',player:{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,potions:player.potions},abilityCooldown,zombies,kills,boss,bjorn,crate,gameTime,rpg:{xp,level,skillPoints,strength,vitality,agility,questText,zoneName}};localStorage.setItem('lastLightSave',JSON.stringify(data));saveAvailable=true;lastSaveAt=Date.now();}catch(e){}};
+ loadGame=function(){try{const d=JSON.parse(localStorage.getItem('lastLightSave')||'null');if(!d||![1,2].includes(d.version))return false;difficulty=d.difficulty in difficultySettings?d.difficulty:'normal';player={...d.player,speed:3.25,face:0,inv:0,defending:false,walk:0};zombies=Array.isArray(d.zombies)?d.zombies:[];kills=Number(d.kills)||0;boss=d.boss||null;bjorn=d.bjorn||null;crate=d.crate||null;gameTime=Number(d.gameTime)||0;abilityCooldown=Number(d.abilityCooldown)||0;const r=d.rpg||{};xp=+r.xp||0;level=Math.max(1,+r.level||1);skillPoints=+r.skillPoints||0;strength=+r.strength||0;vitality=+r.vitality||0;agility=+r.agility||0;questText=r.questText||'Encontre Bjorn e sobreviva à horda.';zoneName=r.zoneName||'Valedouro';particles=[];state='playing';hideScreen();setMessage('Progresso recuperado. Boa sorte, Arthur.');updateHud();return true;}catch(e){return false;}};
+ const resetProgress=()=>{xp=0;level=1;skillPoints=0;strength=0;vitality=0;agility=0;combo=0;comboTimer=0;dodgeCooldown=0;dodgeFrames=0;bossPhase=0;bossAttackTimer=0;questText='Encontre Bjorn e sobreviva à horda.';zoneName='Valedouro';lastCountedKills=0;};
+ restartGame=function(){resetProgress();originalRestart();};
+ // Variedade de zumbis: corredor, bruto e errante. Os atributos são guardados no save.
+ spawnZombies=function(n){const before=zombies.length;originalSpawn(n);for(let i=before;i<zombies.length;i++){const z=zombies[i],roll=Math.random();if(roll<.24){z.kind='runner';z.hp=z.maxHp=30;z.speed*=1.65;}else if(roll<.47){z.kind='brute';z.hp=z.maxHp=82;z.speed*=.62;}else{z.kind='walker';z.hp=z.maxHp=40;}}};
+ // Dano escalável e combos por sequência de golpes
+ attack=function(){if(state!=='playing'||attackCooldown>0)return;const targets=[...zombies.filter(z=>z.hp>0),...(boss&&boss.hp>0?[boss]:[])];const before=targets.map(e=>({e,hp:e.hp}));originalAttack();let landed=0;for(const b of before){const loss=b.hp-b.e.hp;if(loss>0){landed++;const weaponBonus=level>=5?1.65:level>=3?1.3:1;if(strength>0)b.e.hp-=Math.round(strength*5*weaponBonus);if(combo>=3)b.e.hp-=Math.round((combo-2)*3*weaponBonus);}}
+  if(landed){combo=Math.min(5,combo+1);comboTimer=100;if(combo>=3)setMessage(`COMBO x${combo}! A sequência fortalece seus golpes.`);const hitTargets=before.filter(b=>b.hp>b.e.hp);for(const hit of hitTargets){for(let i=0;i<5;i++)particlesExtra.push({x:hit.e.x+rand(-9,9),y:hit.e.y+rand(-12,8),dx:rand(-1.8,1.8),dy:rand(-2.4,.8),life:18,color:i%3?'#f7d98a':'#b9474d'});}}else combo=0;
+ };
+ function dodge(){if(state!=='playing'||dodgeCooldown>0||!player)return;let dx=0,dy=0;if(keys.w||keys.arrowup)dy--;if(keys.s||keys.arrowdown)dy++;if(keys.a||keys.arrowleft)dx--;if(keys.d||keys.arrowright)dx++;if(mobileMove.active){dx=mobileMove.x;dy=mobileMove.y;}if(!dx&&!dy){dx=Math.cos(player.face);dy=Math.sin(player.face);}const m=Math.hypot(dx,dy)||1;dodgeX=dx/m;dodgeY=dy/m;dodgeFrames=10;dodgeCooldown=Math.max(48,90-agility*8);player.inv=Math.max(player.inv,14);tone(260,.08,'triangle',.025);for(let i=0;i<8;i++)particlesExtra.push({x:player.x,y:player.y,life:16,color:'#b8d8e8'});}
+ window.dodge=dodge;
+ window.addEventListener('keydown',e=>{if(e.key==='Control'&&state==='playing'){e.preventDefault();dodge();}if(e.key.toLowerCase()==='c'&&state==='playing'){showCharacter();}});
+ dodgeButton.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dodge();});
+ // Missões e chefe em três fases
+ update=function(){const oldKills=kills;originalUpdate();if(state==='playing'){
+   if(kills>oldKills){grantXP((kills-oldKills)*35);questText=kills<10?`Derrote os zumbis (${kills}/10).`:'Derrote o Zumbi Alfa.';}
+   if(bjorn&&bjorn.rescued&&kills<10)questText=`Proteja Bjorn: elimine os zumbis (${kills}/10).`;
+   if(boss&&boss.hp>0){const ratio=boss.hp/boss.maxHp;const phase=ratio>.66?1:ratio>.33?2:3;if(phase!==bossPhase){bossPhase=phase;setMessage(phase===2?'Zumbi Alfa: a criatura entrou em FÚRIA!':'Zumbi Alfa: último estágio — cuidado com o ataque devastador!');burst(boss.x,boss.y,phase===2?'#d47b42':'#d84b63');tone(75,.28,'sawtooth',.045);}boss.phase=phase;bossAttackTimer++;if(bossAttackTimer>(phase===1?155:phase===2?105:78)){bossAttackTimer=0;const d=dist(player,boss);if(d<175){const damage=Math.round((phase===1?8:phase===2?12:17)*difficultySettings[difficulty].enemyDamage/7);hurt(damage);for(let i=0;i<18;i++){const a=i*Math.PI/9;particlesExtra.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.8,dy:Math.sin(a)*2.8,life:24,color:'#c24c69'});}setMessage('O Zumbi Alfa liberou uma onda de choque!');}}}
+   if(dodgeFrames>0){player.x=Math.max(18,Math.min(W-18,player.x+dodgeX*(7+agility*.4)));player.y=Math.max(35,Math.min(H-18,player.y+dodgeY*(7+agility*.4)));dodgeFrames--;}
+   if(dodgeCooldown>0)dodgeCooldown--;if(comboTimer>0)comboTimer--;else combo=0;
+   for(const p of particlesExtra){p.x+=p.dx||0;p.y+=p.dy||0;p.life--;}particlesExtra=particlesExtra.filter(p=>p.life>0);
+   if(crate&&!crate.opened)questText='Aproxime-se da caixa e pressione E para libertar Jorgin.';
+   if(crate&&crate.opened)questText='Jorgin foi encontrado!';
+   updateHud();if(Date.now()-lastSaveAt>5000)saveGame();
+  }};
+ // HUD de nível/XP e recarga da esquiva
+ updateHud=function(){originalHud();if($('xpHud'))$('xpHud').textContent=`Nv. ${level} · XP ${xp}/${xpNeeded()} · Pontos ${skillPoints}`;if($('questHud'))$('questHud').textContent=`Missão: ${questText}`;if(ui.defense&&player&&dodgeCooldown>0)ui.defense.textContent=player.defending?'Defesa: ativa':`Esquiva: ${Math.ceil(dodgeCooldown/60)}s`;};
+ // Efeitos e sinais visuais dos tipos de inimigo e fase do chefe
+ drawPerson=function(x,y,kind,scale){if(state==='playing'&&kind==='arthur'&&player&&Math.hypot(x-player.x,y-player.y)<1&&player.walk)y+=Math.sin(gameTime*.42)*2;originalDrawPerson(x,y,kind,scale);};
+ drawGame=function(){originalDrawGame();for(const z of zombies){if(!z.kind)continue;ctx.save();if(z.kind==='runner'){ctx.strokeStyle='#e4a04c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(z.x,z.y-7,17,0,Math.PI*2);ctx.stroke();}else if(z.kind==='brute'){ctx.strokeStyle='#9b5d58';ctx.lineWidth=3;ctx.strokeRect(z.x-17,z.y-29,34,39);}ctx.restore();}
+  if(boss&&boss.hp>0){ctx.save();ctx.strokeStyle=boss.phase===3?'#fa526f':boss.phase===2?'#d78b4b':'#b68ae0';ctx.lineWidth=3;ctx.globalAlpha=.45+.2*Math.sin(gameTime*.12);ctx.beginPath();ctx.arc(boss.x,boss.y,43+(boss.phase||1)*3,0,Math.PI*2);ctx.stroke();ctx.restore();}
+  for(const p of particlesExtra){ctx.globalAlpha=Math.max(0,p.life/18);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4);}ctx.globalAlpha=1;
+  if(player&&dodgeFrames>0){ctx.save();ctx.globalAlpha=.25;ctx.fillStyle='#bdeaff';ctx.beginPath();ctx.ellipse(player.x,player.y,23,13,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+ };
+ // Desbloqueio de tela de atributos via tecla C e botão extra de inventário.
+ const charBtn=document.createElement('button');charBtn.type='button';charBtn.textContent='PERSONAGEM';charBtn.onclick=showCharacter;$('extraControls').appendChild(charBtn);
+ // Controles e mensagens revisados para PC e mobile.
+ $('instructions').textContent='PC: WASD/SETAS mover · clique/ESPAÇO atacar · CTRL esquivar · SHIFT/clique direito defender · F habilidade · Q poção · E interagir · C atributos · ESC pausar. Celular: analógico e botões de ação.';
+ syncPlatform();applyAudioVolumes();if(player)updateHud();
+})();
+
 </script>
 </body>
 </html>
